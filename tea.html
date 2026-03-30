@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tea Generator</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <style>
+      :root {
+        --gap: 1rem;
+      }
+
+      body {
+        padding: 1rem;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: var(--gap);
+        align-items: start;
+      }
+
+      .controls {
+        position: sticky;
+        top: 1rem;
+      }
+
+      .stack {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .result-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .option-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+        gap: 0.4rem 0.75rem;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .section-header label {
+        margin: 0;
+        min-width: 18rem;
+      }
+
+      .section-header input {
+        margin: 0;
+      }
+
+      .checkbox-list {
+        max-height: 16rem;
+        overflow: auto;
+        padding-right: 0.25rem;
+      }
+
+      .icon-button {
+        margin: 0;
+        padding: 0.35rem 0.7rem;
+        width: auto;
+        min-width: 0;
+      }
+
+      #status {
+        position: absolute;
+        right: 1rem;
+        top: 2.5rem;
+      }
+
+      button {
+        white-space: nowrap;
+      }
+
+      .muted {
+        color: var(--pico-muted-color);
+      }
+
+      .empty {
+        border: 1px dashed var(--pico-muted-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 1rem;
+      }
+
+      #resultCard {
+        flex: 1;
+      }
+
+      .split {
+        display: grid;
+        gap: 2rem;
+        grid-template-columns: 3fr 2fr;
+        grid-template-areas: 
+          "plant parts"
+          "appearance flavor"
+          "why adds"
+      }
+
+      .match-list {
+        columns: 2;
+        column-gap: 1rem;
+      }
+
+      .match-list li {
+        break-inside: avoid;
+        margin-bottom: 0.35rem;
+      }
+
+      .match-link {
+        background: none;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        margin: 0;
+        padding: 0;
+        text-align: left;
+        width: auto;
+      }
+
+      .match-link:hover,
+      .match-link:focus {
+        color: var(--pico-primary);
+      }
+
+      .match-link.is-active {
+        color: var(--pico-primary);
+        font-weight: 600;
+      }
+
+      .results {
+        display: flex;
+        gap: 0.75rem;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          position: static;
+        }
+
+        .match-list {
+          columns: 1;
+        }
+      }
+
+      button.linklike {
+        border: unset;
+          --pico-background-color: transparent;
+          --pico-color: var(--pico-secondary);
+        display: inline;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Tea Generator</h1>
+        <p id="status" class="muted" aria-live="polite">Preparing tea data...</p>
+      </header>
+
+      <div class="layout">
+        <aside class="controls">
+          <article class="stack">
+            <label for="temperature">
+              Tea style
+              <select id="temperature">
+                <option value="any">Any</option>
+                <option value="warm">Warm</option>
+                <option value="iced">Iced</option>
+              </select>
+            </label>
+
+            <details open>
+              <summary>Parts used</summary>
+              <fieldset role="group" class="">
+                <label>
+                  <input type="radio" name="partsMode" value="any" checked />
+                  Any of
+                </label>
+                <label>
+                  <input type="radio" name="partsMode" value="all" />
+                  All of
+                </label>
+              </fieldset>
+              <div id="partsFilters" class="option-grid checkbox-list"></div>
+            </details>
+
+            <details>
+              <summary>Flavours</summary>
+              <fieldset role="group" >
+                <label>
+                  <input type="radio" name="flavourMode" value="any" checked />
+                  Any of
+                </label>
+                <label>
+                  <input type="radio" name="flavourMode" value="all" />
+                  All of
+                </label>
+              </fieldset>
+              <div id="flavourFilters" class="option-grid checkbox-list"></div>
+            </details>
+
+            <div class="stack">
+              <button id="generateBtn">Generate Tea</button>
+              <button id="clearBtn" class="linklike">Clear Filters</button>
+            </div>
+          </article>
+        </aside>
+
+        <section class="results">
+          <article id="resultCard">
+            <header>
+              <div class="result-header">
+                <strong id="resultTitle">Waiting for data...</strong>
+                <button
+                  id="rerollBtn"
+                  type="button"
+                  class="outline icon-button"
+                  aria-label="Reroll tea"
+                  title="Reroll tea"
+                >
+                  ↻
+                </button>
+              </div>
+            </header>
+            <div id="resultBody" class="empty muted">
+              The generator will show a random tea here.
+            </div>
+          </article>
+
+          <article>
+            <header class="section-header">
+              <strong>Matching Pool</strong>
+              <label for="search">
+                <input
+                  id="search"
+                  type="search"
+                  placeholder="Search matching teas"
+                />
+              </label>
+            </header>
+            <p class="muted">
+              <span id="matchCount">0</span> teas match the current filters.
+            </p>
+            <details>
+              <summary>Show matching items</summary>
+              <ul id="matchList" class="match-list"></ul>
+            </details>
+          </article>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const state = {
+        data: null,
+        entries: [],
+        lastResultKey: null,
+        eventsBound: false,
+      };
+
+      const teaData = {
+  "format": "tea_reference_v2",
+  "parts": [
+    "berries",
+    "blossoms",
+    "buds",
+    "calyces",
+    "flowers",
+    "fruit",
+    "hips",
+    "leaves",
+    "petals",
+    "rhizomes",
+    "roots",
+    "seeds",
+    "stalks",
+    "stems",
+    "tendrils",
+    "young leaves"
+  ],
+  "flavour": [
+    "apple-like",
+    "aromatic",
+    "berry",
+    "bitter",
+    "bright",
+    "brisk",
+    "citrusy",
+    "clean",
+    "cocoa",
+    "cooling",
+    "cranberry-like",
+    "crisp",
+    "earthy",
+    "floral",
+    "fresh",
+    "fruity",
+    "grassy",
+    "hay-like",
+    "herbal",
+    "honeyed",
+    "licorice-like",
+    "malty",
+    "maple-like",
+    "mild",
+    "minty",
+    "musky",
+    "nutty",
+    "peppery",
+    "pungent",
+    "resinous",
+    "roasted",
+    "savory",
+    "spicy",
+    "strong",
+    "sweet",
+    "tannic",
+    "tart",
+    "tropical",
+    "warming",
+    "woody"
+  ],
+  "warm": {
+    "angelica": {
+      "item": "Angelica",
+      "plant_desc": "A tall aromatic herb in the carrot family with hollow stems and umbrella-shaped flower clusters",
+      "parts_used": ["roots"],
+      "tea_appearance": "Clear amber to light brown",
+      "tea_flavour": ["earthy", "aromatic", "bitter"]
+    },
+    "anise_hyssop": {
+      "item": "Anise Hyssop",
+      "plant_desc": "A mint-family perennial with purple flower spikes that pollinators love",
+      "parts_used": ["leaves", "flowers"],
+      "tea_appearance": "Pale gold to green-gold",
+      "tea_flavour": ["sweet", "herbal", "licorice-like"]
+    },
+    "apple_mint": {
+      "item": "Apple Mint",
+      "plant_desc": "A soft-leaved mint with a fuzzy texture and a mild fruity scent",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["minty", "fruity"]
+    },
+    "black_peppermint": {
+      "item": "Black Peppermint",
+      "plant_desc": "A darker-stemmed peppermint cultivar known for a strong menthol aroma",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["strong", "cooling", "minty"]
+    },
+    "blueberry": {
+      "item": "Blueberry",
+      "plant_desc": "A fruiting shrub that produces blue berries and clusters of white spring blossoms",
+      "parts_used": ["fruit"],
+      "tea_appearance": "Pink-red to violet-red",
+      "tea_flavour": ["sweet", "tart", "berry"]
+    },
+    "bronze_fennel": {
+      "item": "Bronze Fennel",
+      "plant_desc": "A feathery fennel with bronze foliage and a sweet anise scent",
+      "parts_used": ["leaves", "flowers"],
+      "tea_appearance": "Light gold to yellow-green",
+      "tea_flavour": ["sweet", "herbal", "licorice-like"]
+    },
+    "butterfly_pea_flower": {
+      "item": "Butterfly Pea Flower",
+      "plant_desc": "A tropical climbing vine famous for its vivid cobalt-blue blossoms",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Vivid blue; turns purple with acid",
+      "tea_flavour": ["mild", "earthy", "grassy"]
+    },
+    "calendula": {
+      "item": "Calendula",
+      "plant_desc": "An easy annual with bright daisy-like blooms that keep coming when picked",
+      "parts_used": ["flowers", "petals"],
+      "tea_appearance": "Bright golden yellow",
+      "tea_flavour": ["mild", "earthy", "peppery"]
+    },
+    "cardamom": {
+      "item": "Cardamom",
+      "plant_desc": "A tropical ginger relative valued for its fragrant pods and lush foliage",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Light gold",
+      "tea_flavour": ["warming", "spicy", "citrusy"]
+    },
+    "catnip": {
+      "item": "Catnip",
+      "plant_desc": "A mint-family herb best known for the euphoric effect it can have on cats",
+      "parts_used": ["leaves", "flowers"],
+      "tea_appearance": "Pale gold to yellow-green",
+      "tea_flavour": ["mild", "minty", "herbal", "earthy"]
+    },
+    "chicory": {
+      "item": "Chicory",
+      "plant_desc": "A roadside blue-flowered perennial with a deep, sturdy taproot",
+      "parts_used": ["roots"],
+      "tea_appearance": "Amber to deep brown",
+      "tea_flavour": ["roasted", "nutty", "bitter"]
+    },
+    "chocolate_mint": {
+      "item": "Chocolate Mint",
+      "plant_desc": "A mint cultivar with a cooling aroma and a faint chocolate note",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-brown",
+      "tea_flavour": ["minty", "cocoa"]
+    },
+    "chrysanthemum": {
+      "item": "Chrysanthemum",
+      "plant_desc": "A daisy relative widely used in East Asian floral teas",
+      "parts_used": ["flowers", "buds"],
+      "tea_appearance": "Clear pale yellow",
+      "tea_flavour": ["floral", "sweet"]
+    },
+    "cilantro_coriander": {
+      "item": "Cilantro / Coriander",
+      "plant_desc": "The same plant gives leafy cilantro and the spice known as coriander seed",
+      "parts_used": ["seeds"],
+      "tea_appearance": "Light gold",
+      "tea_flavour": ["warming", "citrusy", "spicy"]
+    },
+    "cinnamon_basil": {
+      "item": "Cinnamon Basil",
+      "plant_desc": "A basil variety with a spicy cinnamon scent and attractive purple flower spikes",
+      "parts_used": ["leaves", "flowers", "stems"],
+      "tea_appearance": "Warm gold to light amber",
+      "tea_flavour": ["warming", "spicy", "herbal"]
+    },
+    "cornflower": {
+      "item": "Cornflower",
+      "plant_desc": "A classic cottage-garden annual known for its vivid blue blooms",
+      "parts_used": ["petals"],
+      "tea_appearance": "Very pale blue-gold or nearly clear",
+      "tea_flavour": ["mild", "floral", "bitter"]
+    },
+    "dahlia": {
+      "item": "Dahlia",
+      "plant_desc": "A tuberous ornamental famous for dramatic layered flowers in many forms and colors",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Soft gold to blush pink",
+      "tea_flavour": ["floral", "sweet"]
+    },
+    "dandelion_root": {
+      "item": "Dandelion Root",
+      "plant_desc": "A common lawn wildflower with toothed leaves, yellow blooms, and a deep taproot",
+      "parts_used": ["roots"],
+      "tea_appearance": "Amber to brown",
+      "tea_flavour": ["earthy", "roasted", "bitter"]
+    },
+    "dianthus": {
+      "item": "Dianthus",
+      "plant_desc": "A long-blooming flower often called pinks, with a clove-like scent",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Light gold to pink-gold",
+      "tea_flavour": ["sweet", "floral", "spicy"]
+    },
+    "eastern_mint": {
+      "item": "Eastern Mint",
+      "plant_desc": "A wild mint with narrow aromatic foliage and a fresh herbal character",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["fresh", "minty", "herbal"]
+    },
+    "echinacea": {
+      "item": "Echinacea",
+      "plant_desc": "A prairie perennial with spiky central cones that attract bees and butterflies",
+      "parts_used": ["flowers", "leaves", "roots"],
+      "tea_appearance": "Muted gold to amber",
+      "tea_flavour": ["earthy", "floral", "grassy"]
+    },
+    "elderflower": {
+      "item": "Elderflower",
+      "plant_desc": "The elder is a shrub or small tree with broad clusters of tiny cream-colored flowers",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Pale straw yellow",
+      "tea_flavour": ["floral", "honeyed", "fruity"]
+    },
+    "fennel": {
+      "item": "Fennel",
+      "plant_desc": "A tall feathery herb with yellow umbels and a strong licorice aroma",
+      "parts_used": ["seeds"],
+      "tea_appearance": "Clear yellow-gold",
+      "tea_flavour": ["sweet", "licorice-like", "warming"]
+    },
+    "fenugreek": {
+      "item": "Fenugreek",
+      "plant_desc": "A legume with trifoliate leaves and seeds known for a maple-like scent when cooked",
+      "parts_used": ["seeds"],
+      "tea_appearance": "Golden brown",
+      "tea_flavour": ["nutty", "maple-like", "bitter"]
+    },
+    "feverfew": {
+      "item": "Feverfew",
+      "plant_desc": "A daisy-like medicinal herb long associated with traditional headache remedies",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale yellow-green",
+      "tea_flavour": ["herbal", "grassy", "bitter"]
+    },
+    "german_chamomile": {
+      "item": "German Chamomile",
+      "plant_desc": "An apple-scented annual with delicate daisy-like blooms",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Clear pale gold",
+      "tea_flavour": ["apple-like", "floral", "sweet"]
+    },
+    "ginger": {
+      "item": "Ginger",
+      "plant_desc": "A tropical plant with lush reed-like shoots and spicy underground rhizomes",
+      "parts_used": ["rhizomes", "roots"],
+      "tea_appearance": "Cloudy gold to amber",
+      "tea_flavour": ["warming", "spicy", "pungent"]
+    },
+    "ginger_mint": {
+      "item": "Ginger Mint",
+      "plant_desc": "A variegated mint with a cool aroma and a gentle spicy edge",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["cooling", "minty", "spicy"]
+    },
+    "globe_amaranth": {
+      "item": "Globe Amaranth",
+      "plant_desc": "A heat-loving annual with papery clover-like blooms that dry beautifully",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Clear purple-magenta",
+      "tea_flavour": ["mild", "earthy", "sweet"]
+    },
+    "hawthorn": {
+      "item": "Hawthorn",
+      "plant_desc": "A thorny shrub or small tree with spring blossoms and bright red berries",
+      "parts_used": ["flowers", "berries"],
+      "tea_appearance": "Soft pink-amber",
+      "tea_flavour": ["floral", "fruity"]
+    },
+    "honeysuckle": {
+      "item": "Honeysuckle",
+      "plant_desc": "A twining shrub or vine known for tubular fragrant flowers",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["sweet", "aromatic", "floral"]
+    },
+    "hyssop": {
+      "item": "Hyssop",
+      "plant_desc": "A shrubby herb with narrow leaves and upright flower spikes",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Yellow-green",
+      "tea_flavour": ["minty", "herbal", "bitter"]
+    },
+    "jasmine": {
+      "item": "Jasmine",
+      "plant_desc": "A shrub or vine prized for intensely fragrant white blossoms",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Pale yellow",
+      "tea_flavour": ["mild", "sweet", "floral"]
+    },
+    "lavatera": {
+      "item": "Lavatera",
+      "plant_desc": "A mallow relative with open, hibiscus-like blooms",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Pale gold to blush pink",
+      "tea_flavour": ["mild", "floral"]
+    },
+    "english_lavender": {
+      "item": "English Lavender",
+      "plant_desc": "A Mediterranean shrub with silvery leaves and fragrant purple flower spikes",
+      "parts_used": ["flowers", "leaves"],
+      "tea_appearance": "Pale gold with a faint violet cast",
+      "tea_flavour": ["sweet", "floral"]
+    },
+    "lavender_mint": {
+      "item": "Lavender Mint",
+      "plant_desc": "A floral-scented mint cultivar that blends mint freshness with perfume-like notes",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold-green",
+      "tea_flavour": ["minty", "floral"]
+    },
+    "lemon": {
+      "item": "Lemon",
+      "plant_desc": "An evergreen citrus tree with glossy leaves, fragrant blossoms, and bright yellow fruit",
+      "parts_used": ["fruit"],
+      "tea_appearance": "Bright yellow to pale gold",
+      "tea_flavour": ["bright", "tart", "citrusy"]
+    },
+    "lemon_balm": {
+      "item": "Lemon Balm",
+      "plant_desc": "A lemon-scented mint-family herb that spreads readily in the garden",
+      "parts_used": ["leaves", "stems"],
+      "tea_appearance": "Pale yellow-green",
+      "tea_flavour": ["fresh", "citrusy", "sweet"]
+    },
+    "lemon_basil": {
+      "item": "Lemon Basil",
+      "plant_desc": "A basil hybrid with a strong citrus aroma and glossy leaves",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Light green-gold",
+      "tea_flavour": ["citrusy", "herbal"]
+    },
+    "lemon_thyme": {
+      "item": "Lemon Thyme",
+      "plant_desc": "A low-growing thyme with tiny leaves and a sharp lemon scent",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["savory", "citrusy", "herbal"]
+    },
+    "lemongrass": {
+      "item": "Lemongrass",
+      "plant_desc": "A clumping tropical grass grown for its citrus-scented stalks and leaves",
+      "parts_used": ["leaves", "stalks", "stems"],
+      "tea_appearance": "Clear light yellow",
+      "tea_flavour": ["bright", "citrusy", "fresh"]
+    },
+    "lemon_verbena": {
+      "item": "Lemon Verbena",
+      "plant_desc": "A tender shrub with intensely lemon-scented leaves",
+      "parts_used": ["leaves", "flowers"],
+      "tea_appearance": "Pale yellow-green",
+      "tea_flavour": ["sweet", "citrusy", "aromatic", "clean"]
+    },
+    "licorice": {
+      "item": "Licorice",
+      "plant_desc": "A legume whose roots contain the natural sweet compound glycyrrhizin",
+      "parts_used": ["roots"],
+      "tea_appearance": "Golden brown",
+      "tea_flavour": ["sweet", "earthy", "licorice-like"]
+    },
+    "linden": {
+      "item": "Linden",
+      "plant_desc": "A large shade tree with fragrant summer blossoms beloved by bees",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Light gold",
+      "tea_flavour": ["floral", "honeyed"]
+    },
+    "magnolia": {
+      "item": "Magnolia",
+      "plant_desc": "An ancient flowering tree or shrub with large waxy blooms",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Very pale gold",
+      "tea_flavour": ["floral", "sweet"]
+    },
+    "manuka": {
+      "item": "Manuka",
+      "plant_desc": "A New Zealand shrub related to tea tree and known for its aromatic foliage",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale amber",
+      "tea_flavour": ["resinous", "herbal", "spicy"]
+    },
+    "monarda": {
+      "item": "Monarda",
+      "plant_desc": "A North American native also called bee balm, famous for attracting hummingbirds and bees",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Rose-gold to amber",
+      "tea_flavour": ["herbal", "minty", "citrusy"]
+    },
+    "moroccan_mint": {
+      "item": "Moroccan Mint",
+      "plant_desc": "A sweet, smooth mint often associated with traditional North African mint tea",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["sweet", "mild", "cooling", "minty"]
+    },
+    "mountain_pepper": {
+      "item": "Mountain Pepper",
+      "plant_desc": "An evergreen shrub or small tree with peppery aromatic leaves",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Amber-brown",
+      "tea_flavour": ["peppery", "woody", "warming"]
+    },
+    "myrtle": {
+      "item": "Myrtle",
+      "plant_desc": "An evergreen shrub with glossy leaves, fragrant flowers, and aromatic berries",
+      "parts_used": ["fruit"],
+      "tea_appearance": "Pink-red to garnet",
+      "tea_flavour": ["aromatic", "sweet", "herbal", "fruity"]
+    },
+    "nasturtium": {
+      "item": "Nasturtium",
+      "plant_desc": "A fast-growing annual with round leaves and vividly colored edible flowers",
+      "parts_used": ["flowers", "leaves"],
+      "tea_appearance": "Gold with a light orange tint",
+      "tea_flavour": ["peppery", "tart", "bright"]
+    },
+    "new_jersey_tea": {
+      "item": "New Jersey Tea",
+      "plant_desc": "A native North American shrub once used as a tea substitute during shortages",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Amber to reddish brown",
+      "tea_flavour": ["roasted", "herbal", "tannic"]
+    },
+    "olive_tree_leaves": {
+      "item": "Olive Tree Leaves",
+      "plant_desc": "The olive tree is a Mediterranean evergreen with narrow silvery-green leaves",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale olive-gold",
+      "tea_flavour": ["savory", "grassy", "bitter"]
+    },
+    "orange_blossom": {
+      "item": "Orange Blossom",
+      "plant_desc": "Orange blossoms are the intensely fragrant flowers of the citrus tree",
+      "parts_used": ["blossoms"],
+      "tea_appearance": "Clear pale gold",
+      "tea_flavour": ["sweet", "floral", "citrusy"]
+    },
+    "orange_thyme": {
+      "item": "Orange Thyme",
+      "plant_desc": "A thyme variety with a warm orange-citrus fragrance",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["citrusy", "savory", "resinous"]
+    },
+    "purple_passionflower": {
+      "item": "Purple Passionflower",
+      "plant_desc": "A climbing vine with intricate alien-looking blooms and edible maypop fruit",
+      "parts_used": ["flowers", "leaves", "tendrils"],
+      "tea_appearance": "Soft yellow-green",
+      "tea_flavour": ["mild", "floral", "grassy"]
+    },
+    "peony": {
+      "item": "Peony",
+      "plant_desc": "A long-lived perennial famous for its lush, oversized spring blooms",
+      "parts_used": ["petals"],
+      "tea_appearance": "Blush pink to pale gold",
+      "tea_flavour": ["floral", "sweet"]
+    },
+    "peppermint": {
+      "item": "Peppermint",
+      "plant_desc": "A classic cooling mint hybrid with a high menthol content",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Clear green-gold",
+      "tea_flavour": ["cooling", "crisp", "minty"]
+    },
+    "pineapple_mint": {
+      "item": "Pineapple Mint",
+      "plant_desc": "A variegated mint with pale-edged leaves and a soft fruity scent",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale yellow-green",
+      "tea_flavour": ["minty", "tropical", "sweet"]
+    },
+    "pineapple_sage": {
+      "item": "Pineapple Sage",
+      "plant_desc": "A fruity salvia with scarlet flowers that hummingbirds love",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Light amber",
+      "tea_flavour": ["sweet", "herbal", "tropical", "fruity"]
+    },
+    "raspberry": {
+      "item": "Raspberry",
+      "plant_desc": "A cane-forming bramble that produces berries after spring flowering",
+      "parts_used": ["leaves", "flowers"],
+      "tea_appearance": "Pink-gold to light red",
+      "tea_flavour": ["berry", "herbal", "floral"]
+    },
+    "roman_chamomile": {
+      "item": "Roman Chamomile",
+      "plant_desc": "A low-growing perennial chamomile often used as a fragrant groundcover",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["floral", "mild", "apple-like"]
+    },
+    "rose": {
+      "item": "Rose",
+      "plant_desc": "A woody flowering shrub grown for scented blooms and colorful hips",
+      "parts_used": ["petals", "hips"],
+      "tea_appearance": "Blush pink to rose-gold",
+      "tea_flavour": ["aromatic", "floral", "sweet"]
+    },
+    "rosemary": {
+      "item": "Rosemary",
+      "plant_desc": "A woody Mediterranean herb with needle-like leaves and a resinous scent",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["resinous", "savory"]
+    },
+    "roselle": {
+      "item": "Roselle",
+      "plant_desc": "A tropical hibiscus grown for its fleshy red calyces",
+      "parts_used": ["flowers", "calyces"],
+      "tea_appearance": "Deep ruby red",
+      "tea_flavour": ["tart", "cranberry-like", "fruity"]
+    },
+    "safflower": {
+      "item": "Safflower",
+      "plant_desc": "A thistle-like annual with vivid orange flower heads",
+      "parts_used": ["petals"],
+      "tea_appearance": "Orange-gold to reddish gold",
+      "tea_flavour": ["mild", "earthy", "herbal"]
+    },
+    "saffron": {
+      "item": "Saffron",
+      "plant_desc": "An autumn-blooming crocus whose stigmas are the world-famous spice saffron",
+      "parts_used": ["flowers"],
+      "tea_appearance": "Rich golden yellow",
+      "tea_flavour": ["floral", "honeyed", "hay-like"]
+    },
+    "scented_geranium": {
+      "item": "Scented Geranium",
+      "plant_desc": "A tender geranium grown more for fragrant foliage than for its flowers",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["aromatic", "floral", "citrusy"]
+    },
+    "spearmint": {
+      "item": "Spearmint",
+      "plant_desc": "A softer, sweeter mint than peppermint, with a classic garden-mint aroma",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["sweet", "mild", "minty", "cooling"]
+    },
+    "stevia": {
+      "item": "Stevia",
+      "plant_desc": "A South American herb whose leaves are naturally very sweet",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Light yellow-green",
+      "tea_flavour": ["sweet", "herbal"]
+    },
+    "strawberry": {
+      "item": "Strawberry",
+      "plant_desc": "A low runner-forming plant with white flowers and bright red fruit",
+      "parts_used": ["fruit"],
+      "tea_appearance": "Pink-red",
+      "tea_flavour": ["sweet", "berry", "tart"]
+    },
+    "strawberry_mint": {
+      "item": "Strawberry Mint",
+      "plant_desc": "A fruity-scented mint cultivar with a gentle berry note",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["minty", "berry"]
+    },
+    "sweet_tea_vine": {
+      "item": "Sweet Tea Vine",
+      "plant_desc": "A climbing vine, also called jiaogulan, grown for its naturally sweet leaves",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["sweet", "mild", "herbal"]
+    },
+    "swiss_mint": {
+      "item": "Swiss Mint",
+      "plant_desc": "A mint cultivar with a smooth sweet profile and soft cooling finish",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale green-gold",
+      "tea_flavour": ["cooling", "minty", "sweet"]
+    },
+    "tangerine_sage": {
+      "item": "Tangerine Sage",
+      "plant_desc": "A fruity salvia with citrus-scented foliage and vivid flowers",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Light amber-orange",
+      "tea_flavour": ["citrusy", "herbal", "sweet"]
+    },
+    "tea_plant": {
+      "item": "Tea Plant",
+      "plant_desc": "An evergreen camellia shrub; all true tea comes from this one species",
+      "parts_used": ["young leaves", "buds"],
+      "tea_appearance": "Varies from pale green-gold to deep amber",
+      "tea_flavour": ["grassy", "brisk", "floral", "malty"]
+    },
+    "variegated_lemon_thyme": {
+      "item": "Variegated Lemon Thyme",
+      "plant_desc": "A decorative lemon thyme with cream-edged leaves and a bright citrus scent",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale gold",
+      "tea_flavour": ["citrusy", "savory", "herbal"]
+    },
+    "valerian": {
+      "item": "Valerian",
+      "plant_desc": "A tall perennial with airy flower clusters and famously pungent roots",
+      "parts_used": ["roots"],
+      "tea_appearance": "Cloudy amber-brown",
+      "tea_flavour": ["strong", "earthy", "musky"]
+    },
+    "violet": {
+      "item": "Violet",
+      "plant_desc": "A low woodland flower with heart-shaped leaves and delicate spring blooms",
+      "parts_used": ["flowers", "leaves"],
+      "tea_appearance": "Pale blue-violet or light gold",
+      "tea_flavour": ["sweet", "floral", "mild", "grassy"]
+    },
+    "white_horehound": {
+      "item": "White Horehound",
+      "plant_desc": "A fuzzy gray-green mint relative with a long history in old-fashioned herbal remedies",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Gold to pale amber",
+      "tea_flavour": ["bitter", "herbal", "minty"]
+    },
+    "winter_savory": {
+      "item": "Winter Savory",
+      "plant_desc": "A woody savory with peppery leaves and a compact habit",
+      "parts_used": ["leaves"],
+      "tea_appearance": "Pale olive-gold",
+      "tea_flavour": ["peppery", "savory", "herbal"]
+    }
+  },
+  "iced": {
+    "roselle": {
+      "base_item_id": "roselle",
+      "item": "Roselle",
+      "why_good_iced": "Bright and tart over ice",
+      "appearance": "Deep ruby red",
+      "flavour": ["tart", "cranberry-like"],
+      "common_additions": ["lemon", "orange", "ginger"]
+    },
+    "butterfly_pea_flower": {
+      "base_item_id": "butterfly_pea_flower",
+      "item": "Butterfly Pea Flower",
+      "why_good_iced": "Color-changing and showy",
+      "appearance": "Cobalt blue; purple with citrus",
+      "flavour": ["mild", "earthy"],
+      "common_additions": ["lemon", "lime", "honey"]
+    },
+    "peppermint": {
+      "base_item_id": "peppermint",
+      "item": "Peppermint",
+      "why_good_iced": "Extra refreshing chilled",
+      "appearance": "Clear green-gold",
+      "flavour": ["crisp", "minty"],
+      "common_additions": ["lemon", "cucumber", "honey"]
+    },
+    "spearmint": {
+      "base_item_id": "spearmint",
+      "item": "Spearmint",
+      "why_good_iced": "Easy to drink plain",
+      "appearance": "Pale green-gold",
+      "flavour": ["sweet", "minty"],
+      "common_additions": ["lime", "sugar", "green tea"]
+    },
+    "moroccan_mint": {
+      "base_item_id": "moroccan_mint",
+      "item": "Moroccan Mint",
+      "why_good_iced": "Great for sweet mint tea",
+      "appearance": "Pale green-gold",
+      "flavour": ["sweet", "minty"],
+      "common_additions": ["sugar", "lemon", "green tea"]
+    },
+    "lemon_balm": {
+      "base_item_id": "lemon_balm",
+      "item": "Lemon Balm",
+      "why_good_iced": "Light and easy-drinking",
+      "appearance": "Pale yellow-green",
+      "flavour": ["fresh", "citrusy"],
+      "common_additions": ["honey", "mint", "peach"]
+    },
+    "lemongrass": {
+      "base_item_id": "lemongrass",
+      "item": "Lemongrass",
+      "why_good_iced": "Strong in cold pitchers",
+      "appearance": "Clear light yellow",
+      "flavour": ["bright", "citrusy"],
+      "common_additions": ["lime", "ginger", "mint"]
+    },
+    "lemon_verbena": {
+      "base_item_id": "lemon_verbena",
+      "item": "Lemon Verbena",
+      "why_good_iced": "Fragrant even when cold",
+      "appearance": "Pale yellow-green",
+      "flavour": ["sweet", "citrusy", "herbal"],
+      "common_additions": ["honey", "peach", "mint"]
+    },
+    "blueberry": {
+      "base_item_id": "blueberry",
+      "item": "Blueberry",
+      "why_good_iced": "Berry notes pop when chilled",
+      "appearance": "Pink-red to violet-red",
+      "flavour": ["sweet", "tart", "berry"],
+      "common_additions": ["lemon", "hibiscus", "mint"]
+    },
+    "strawberry": {
+      "base_item_id": "strawberry",
+      "item": "Strawberry",
+      "why_good_iced": "Simple summer fruit tea",
+      "appearance": "Pink-red",
+      "flavour": ["sweet", "berry", "tart"],
+      "common_additions": ["lemon", "basil", "mint"]
+    },
+    "rose": {
+      "base_item_id": "rose",
+      "item": "Rose",
+      "why_good_iced": "Lighter and fresher cold",
+      "appearance": "Blush pink to rose-gold",
+      "flavour": ["aromatic", "floral"],
+      "common_additions": ["strawberry", "lemon", "honey"]
+    },
+    "elderflower": {
+      "base_item_id": "elderflower",
+      "item": "Elderflower",
+      "why_good_iced": "Works well in light spritzes",
+      "appearance": "Pale straw yellow",
+      "flavour": ["floral", "fruity"],
+      "common_additions": ["lemon", "cucumber", "mint"]
+    },
+    "jasmine": {
+      "base_item_id": "jasmine",
+      "item": "Jasmine",
+      "why_good_iced": "Elegant and aromatic chilled",
+      "appearance": "Pale yellow",
+      "flavour": ["floral", "sweet"],
+      "common_additions": ["green tea", "peach", "honey"]
+    },
+    "pineapple_sage": {
+      "base_item_id": "pineapple_sage",
+      "item": "Pineapple Sage",
+      "why_good_iced": "Good in summer pitchers",
+      "appearance": "Light amber",
+      "flavour": ["sweet", "herbal", "tropical"],
+      "common_additions": ["pineapple", "lime", "honey"]
+    },
+    "german_chamomile": {
+      "base_item_id": "german_chamomile",
+      "item": "German Chamomile",
+      "why_good_iced": "Gentle and caffeine-free",
+      "appearance": "Clear pale gold",
+      "flavour": ["apple-like", "floral"],
+      "common_additions": ["honey", "lemon", "peach"]
+    },
+    "tea_plant": {
+      "base_item_id": "tea_plant",
+      "item": "Tea Plant",
+      "why_good_iced": "Classic iced-tea base",
+      "appearance": "Pale green-gold to deep amber",
+      "flavour": ["grassy", "brisk", "floral", "malty"],
+      "common_additions": ["lemon", "peach", "mint"]
+    }
+  }
+}
+
+
+      const elements = {
+        temperature: document.querySelector("#temperature"),
+        search: document.querySelector("#search"),
+        partsFilters: document.querySelector("#partsFilters"),
+        flavourFilters: document.querySelector("#flavourFilters"),
+        generateBtn: document.querySelector("#generateBtn"),
+        rerollBtn: document.querySelector("#rerollBtn"),
+        clearBtn: document.querySelector("#clearBtn"),
+        status: document.querySelector("#status"),
+        resultTitle: document.querySelector("#resultTitle"),
+        resultBody: document.querySelector("#resultBody"),
+        matchCount: document.querySelector("#matchCount"),
+        matchList: document.querySelector("#matchList"),
+      };
+
+      function titleCase(value) {
+        return value.replace(/\b\w/g, (letter) => letter.toUpperCase());
+      }
+
+      function getKindSymbol(kind) {
+        return kind === "iced" ? "🧊" : "🔥";
+      }
+
+      function getPartIcon(part) {
+        const iconMap = {
+          berries: "🫐",
+          blossoms: "🌸",
+          buds: "🌱",
+          calyces: "🌺",
+          flowers: "🌼",
+          fruit: "🍎",
+          hips: "🌹",
+          leaves: "🍃",
+          petals: "🌸",
+          rhizomes: "🫚",
+          roots: "🥕",
+          seeds: "🌰",
+          stalks: "🎋",
+          stems: "🌿",
+          tendrils: "🪴",
+          "young leaves": "🌿",
+        };
+
+        return iconMap[part] ?? "🌿";
+      }
+
+      function formatPartsUsed(parts) {
+        if (parts.length === 0) {
+          return "Not available";
+        }
+
+        return parts
+          .map((part) => `${getPartIcon(part)} ${part}`)
+          .join(", ");
+      }
+
+      function createCheckbox(name, value) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        const text = document.createElement("span");
+
+        input.type = "checkbox";
+        input.name = name;
+        input.value = value;
+        input.checked = true;
+        text.textContent = titleCase(value);
+
+        label.append(input, text);
+        return label;
+      }
+
+      function buildEntries(data) {
+        const warmEntries = Object.entries(data.warm).map(([id, tea]) => ({
+          key: `warm:${id}`,
+          id,
+          kind: "warm",
+          item: tea.item,
+          plantDesc: tea.plant_desc,
+          partsUsed: tea.parts_used ?? [],
+          appearance: tea.tea_appearance,
+          flavour: tea.tea_flavour ?? [],
+          notes: null,
+          additions: [],
+        }));
+
+        const icedEntries = Object.entries(data.iced).map(([id, tea]) => {
+          const baseTea = data.warm[tea.base_item_id] ?? {};
+          return {
+            key: `iced:${id}`,
+            id,
+            kind: "iced",
+            item: tea.item,
+            plantDesc: baseTea.plant_desc ?? "",
+            partsUsed: baseTea.parts_used ?? [],
+            appearance: tea.appearance,
+            flavour: tea.flavour ?? [],
+            notes: tea.why_good_iced ?? null,
+            additions: tea.common_additions ?? [],
+          };
+        });
+
+        return [...warmEntries, ...icedEntries];
+      }
+
+      function renderFilters(data) {
+        elements.partsFilters.replaceChildren(
+          ...data.parts.map((part) => createCheckbox("parts", part)),
+        );
+        elements.flavourFilters.replaceChildren(
+          ...data.flavour.map((flavour) => createCheckbox("flavour", flavour)),
+        );
+      }
+
+      function getCheckedValues(name) {
+        return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(
+          (input) => input.value,
+        );
+      }
+
+      function getModeValue(name) {
+        return (
+          document.querySelector(`input[name="${name}"]:checked`)?.value ?? "any"
+        );
+      }
+
+      function matchesSearch(entry, query) {
+        if (!query) {
+          return true;
+        }
+
+        const haystack = [
+          entry.item,
+          entry.kind,
+          entry.plantDesc,
+          entry.appearance,
+          entry.notes,
+          ...entry.partsUsed,
+          ...entry.flavour,
+          ...entry.additions,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(query);
+      }
+
+      function getMatches() {
+        const temperature = elements.temperature.value;
+        const query = elements.search.value.trim().toLowerCase();
+        const selectedParts = getCheckedValues("parts");
+        const selectedFlavours = getCheckedValues("flavour");
+        const partsMode = getModeValue("partsMode");
+        const flavourMode = getModeValue("flavourMode");
+
+        return state.entries.filter((entry) => {
+          if (temperature !== "any" && entry.kind !== temperature) {
+            return false;
+          }
+
+          if (selectedParts.length > 0) {
+            const partMatch =
+              partsMode === "all"
+                ? selectedParts.every((part) => entry.partsUsed.includes(part))
+                : selectedParts.some((part) => entry.partsUsed.includes(part));
+
+            if (!partMatch) {
+              return false;
+            }
+          }
+
+          if (selectedFlavours.length > 0) {
+            const flavourMatch =
+              flavourMode === "all"
+                ? selectedFlavours.every((flavour) => entry.flavour.includes(flavour))
+                : selectedFlavours.some((flavour) => entry.flavour.includes(flavour));
+
+            if (!flavourMatch) {
+              return false;
+            }
+          }
+
+          return matchesSearch(entry, query);
+        });
+      }
+
+      function renderMatches(matches) {
+        elements.matchCount.textContent = String(matches.length);
+        elements.matchList.replaceChildren(
+          ...matches
+            .slice()
+            .sort((left, right) => left.item.localeCompare(right.item))
+            .map((entry) => {
+              const item = document.createElement("li");
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "match-link";
+              if (entry.key === state.lastResultKey) {
+                button.classList.add("is-active");
+              }
+              button.textContent = `${entry.item} ${getKindSymbol(entry.kind)}`;
+              button.addEventListener("click", () => {
+                renderResult(entry);
+                renderMatches(matches);
+              });
+              item.append(button);
+              return item;
+            }),
+        );
+      }
+
+      function renderResult(entry) {
+        if (!entry) {
+          state.lastResultKey = null;
+          elements.resultTitle.textContent = "No matching tea";
+          elements.resultBody.className = "empty muted";
+          elements.resultBody.textContent =
+            "Adjust the filters or clear them to widen the pool";
+          return;
+        }
+
+        state.lastResultKey = entry.key;
+        elements.resultTitle.textContent = `${entry.item} ${getKindSymbol(entry.kind)}`;
+        elements.resultBody.className = "";
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "stack";
+
+        const split = document.createElement("div");
+        split.className = "split";
+
+        split.append(
+          createBlock("Original plant", entry.plantDesc || "Not available", "plant"),
+          createBlock("Parts used", formatPartsUsed(entry.partsUsed), "parts"),
+          createBlock("Tea appearance", entry.appearance || "Not available", "appearance"),
+          createBlock(
+            "Flavour profile",
+            entry.flavour.length > 0 ? entry.flavour.join(", ") : "Not available",
+            "flavor"
+          ),
+        );
+
+        if (entry.notes) {
+          split.append(createBlock("Notes", entry.notes, "why"));
+        }
+
+        if (entry.additions.length > 0) {
+          split.append(
+            createBlock("Common additions", entry.additions.join(", "), "adds"),
+          );
+        }
+
+        wrapper.append(split);
+        elements.resultBody.replaceChildren(wrapper);
+      }
+
+      function createBlock(label, value, cssclass="") {
+        const section = document.createElement("section");
+        const heading = document.createElement("strong");
+        const paragraph = document.createElement("p");
+
+        heading.textContent = label;
+        paragraph.textContent = value;
+        paragraph.style.marginBottom = "0";
+
+        cssclass && section.classList.add(cssclass);
+        section.append(heading, paragraph);
+        return section;
+      }
+
+      function roll(matches) {
+        if (matches.length === 0) {
+          renderResult(null);
+          renderMatches(matches);
+          elements.status.textContent = "No teas match the current filters";
+          return;
+        }
+
+        const next = matches[Math.floor(Math.random() * matches.length)];
+        renderResult(next);
+        renderMatches(matches);
+        elements.status.textContent = `Rolled 1 tea from ${matches.length} matches.`;
+      }
+
+      function updateMatches() {
+        const matches = getMatches();
+
+        if (matches.length === 0) {
+          renderResult(null);
+        } else if (!matches.some((entry) => entry.key === state.lastResultKey)) {
+          renderResult(matches[0]);
+        }
+
+        renderMatches(matches);
+
+        if (state.data) {
+          elements.status.textContent = `${matches.length} teas available with the current filters.`;
+        }
+      }
+
+      function resetFilters() {
+        elements.temperature.value = "any";
+        elements.search.value = "";
+        document.querySelector('input[name="partsMode"][value="any"]').checked = true;
+        document.querySelector('input[name="flavourMode"][value="any"]').checked = true;
+        document
+          .querySelectorAll('input[name="parts"], input[name="flavour"]')
+          .forEach((input) => {
+            input.checked = true;
+          });
+        state.lastResultKey = null;
+        updateMatches();
+      }
+
+      function bindEvents() {
+        if (state.eventsBound) {
+          return;
+        }
+
+        state.eventsBound = true;
+        elements.generateBtn.addEventListener("click", () => roll(getMatches()));
+        elements.rerollBtn.addEventListener("click", () => roll(getMatches()));
+        elements.clearBtn.addEventListener("click", resetFilters);
+        elements.temperature.addEventListener("change", updateMatches);
+        elements.search.addEventListener("input", updateMatches);
+        document
+          .querySelectorAll('input[name="partsMode"], input[name="flavourMode"]')
+          .forEach((input) => input.addEventListener("change", updateMatches));
+        elements.partsFilters.addEventListener("change", updateMatches);
+        elements.flavourFilters.addEventListener("change", updateMatches);
+      }
+
+      function initialize(data) {
+        state.data = data;
+        state.entries = buildEntries(data);
+        state.lastResultKey = null;
+        renderFilters(data);
+        updateMatches();
+        roll(getMatches());
+      }
+
+      initialize(teaData);
+      bindEvents();
+    </script>
+  </body>
+</html>
