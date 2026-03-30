@@ -35,20 +35,23 @@
       }
 
       nav ul {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
         gap: 0.75rem;
         padding-left: 0;
         margin: 0;
-        width: inherit;
+        width: 100%;
       }
 
       nav ul li {
         list-style: none;
         text-wrap: nowrap;
+        flex: 0 0 12rem;
       }
 
       nav a[role="button"] {
+        display: block;
         width: 100%;
         margin: 0;
       }
@@ -60,6 +63,7 @@
         <nav>
           <ul>
             <li><a href="./tea" role="button">tea</a></li>
+            <li><a href="./injury" role="button">injury</a></li>
             <li><a href="./name" role="button">name</a></li>
             <li><a href="./triune-character" role="button">triune-character</a></li>
             <li><a href="/worldslice" role="button">worldslice</a></li>
