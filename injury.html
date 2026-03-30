@@ -1,0 +1,8300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Injury Generator</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <style>
+      :root {
+        --gap: 1rem;
+      }
+
+      body {
+        padding: 1rem;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: var(--gap);
+        align-items: start;
+      }
+
+      .controls {
+        position: sticky;
+        top: 1rem;
+      }
+
+      .stack {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .result-header,
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .result-header {
+        align-items: flex-start;
+      }
+
+      .result-header h2,
+      .section-header strong,
+      .section-header label {
+        margin: 0;
+      }
+
+      .results {
+        display: grid;
+        gap: var(--gap);
+      }
+
+      .result-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--gap);
+      }
+
+      .result-detail-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .result-detail-block p,
+      .result-detail-block h3 {
+        margin: 0;
+      }
+
+      .chipline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+
+      .chip {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid var(--pico-muted-border-color);
+        font-size: 0.78rem;
+      }
+
+      .muted {
+        color: var(--pico-muted-color);
+      }
+
+      .empty {
+        border: 1px dashed var(--pico-muted-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 1rem;
+      }
+
+      .linklike {
+        border: 0;
+        background: transparent;
+        color: var(--pico-secondary);
+        text-decoration: underline;
+        padding: 0;
+        margin: 0;
+      }
+
+      .icon-button {
+        margin: 0;
+        padding: 0.35rem 0.7rem;
+        width: auto;
+        min-width: 0;
+      }
+
+      .rule-list {
+        margin: 0;
+        padding-left: 1.25rem;
+      }
+
+      .rule-list li + li {
+        margin-top: 0.25rem;
+      }
+
+      @media (max-width: 900px) {
+        .layout,
+        .result-detail-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          position: static;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Injury Generator</h1>
+      </header>
+
+      <div class="layout">
+        <aside class="controls">
+          <article class="stack">
+            <label for="attackType">
+              Attack Type
+              <select id="attackType" disabled>
+                <option>Loading...</option>
+              </select>
+            </label>
+
+            <label for="archetype">
+              Archetype
+              <select id="archetype" disabled>
+                <option>Loading...</option>
+              </select>
+            </label>
+
+            <label for="partSelect">
+              Part
+              <select id="partSelect" disabled>
+                <option>Loading...</option>
+              </select>
+            </label>
+
+            <details>
+              <summary>Part Filters</summary>
+              <div class="stack">
+                <label for="exposureFilter">
+                  Exposure
+                  <select id="exposureFilter" disabled>
+                    <option>Loading...</option>
+                  </select>
+                </label>
+
+                <label for="hardnessFilter">
+                  Hardness
+                  <select id="hardnessFilter" disabled>
+                    <option>Loading...</option>
+                  </select>
+                </label>
+
+                <label for="materialFilter">
+                  Material
+                  <select id="materialFilter" disabled>
+                    <option>Loading...</option>
+                  </select>
+                </label>
+
+                <label for="systemFilter">
+                  System
+                  <select id="systemFilter" disabled>
+                    <option>Loading...</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <div class="stack">
+              <button id="generateBtn" disabled>Generate Injury</button>
+              <button id="rerollBtn" class="secondary" disabled>
+                Similar Roll
+              </button>
+              <button id="clearBtn" class="linklike" disabled>
+                Clear Filters
+              </button>
+            </div>
+          </article>
+        </aside>
+
+        <section class="results">
+          <article id="resultCard">
+            <header class="result-header">
+              <div>
+                <h2 id="resultTitle">Waiting for data...</h2>
+                <p id="resultSubtitle" class="muted">No injury rolled yet.</p>
+              </div>
+              <button
+                id="topRerollBtn"
+                type="button"
+                class="outline icon-button"
+                aria-label="Reroll injury"
+                title="Reroll injury"
+                disabled
+              >
+                ↻
+              </button>
+            </header>
+            <div id="resultBody" class="empty muted">
+              The generator will roll a compatible injury here.
+            </div>
+          </article>
+
+        </section>
+      </div>
+    </main>
+
+    <script id="injuryData" type="application/json">
+{
+  "schema_version": 2,
+  "matching": {
+    "rule_semantics": "When filtering outcomes, every key in requires must match. *_any means the part must share at least one value. *_none means it must share none. prefers can be used as a bonus weight rather than a hard gate.",
+    "generation_order": [
+      "pick_archetype",
+      "pick_part",
+      "pick_attack_type",
+      "filter_outcomes_by_requires",
+      "bonus_weight_outcomes_by_prefers",
+      "pick_outcome"
+    ]
+  },
+  "part_trait_axes": {
+    "exposure": [
+      "external",
+      "internal"
+    ],
+    "hardness": [
+      "soft",
+      "hard"
+    ],
+    "natures": [
+      "organic",
+      "mechanical",
+      "mineral",
+      "energetic",
+      "spectral"
+    ],
+    "materials": [
+      "bone",
+      "chitin",
+      "cloth",
+      "coolant",
+      "crystal",
+      "electronic",
+      "energy",
+      "fiber",
+      "fluid",
+      "flesh",
+      "fungal",
+      "gel",
+      "keratin",
+      "lubricant",
+      "magma",
+      "metal",
+      "mineral_slurry",
+      "plant",
+      "plasma",
+      "polymer",
+      "sand",
+      "scale",
+      "silk",
+      "spore",
+      "spectral",
+      "stone",
+      "synthetic",
+      "wood"
+    ],
+    "systems": [
+      "circulatory",
+      "cooling",
+      "digestive",
+      "electronic",
+      "feeding",
+      "fluidics",
+      "hydraulic",
+      "integument",
+      "locomotion",
+      "mystical",
+      "neural",
+      "organ",
+      "power",
+      "reproductive",
+      "respiratory",
+      "sensory",
+      "structural",
+      "venom"
+    ],
+    "shapes": [
+      "appendage",
+      "covering",
+      "line",
+      "mass",
+      "membrane",
+      "sac",
+      "sensor",
+      "spike"
+    ],
+    "states": [
+      "charged",
+      "fluid_bearing",
+      "pressurized",
+      "volatile"
+    ]
+  },
+  "body_parts": {
+    "mammal": {
+      "fur": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hide": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "muzzle": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "snout": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "whiskers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "paws": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "hooves": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "horns": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "fangs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "membrane",
+          "spike"
+        ]
+      },
+      "tail": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "ears": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mane": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ruff": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tusks": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "molars": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "paw pads": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "hocks": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "dewclaws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "antlers": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "trunk": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hump": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spines": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "quills": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "jowls": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "shoulder scruff": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      }
+    },
+    "avian": {
+      "feathers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "beak": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "talons": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "wings": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "crest": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "down": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "crop": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "digestive",
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hollow bones": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tail fan": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "wattle": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "comb": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "pinions": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "air sacs": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "respiratory"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "wishbone": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spur": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "nictitating membrane": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "breast keel": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "nape feathers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "plumage crest": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh",
+          "keratin"
+        ],
+        "systems": [
+          "integument",
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "flight muscles": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "crop pouch": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "digestive",
+          "feeding",
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "egg tooth": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "feeding",
+          "reproductive",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      }
+    },
+    "reptile": {
+      "scales": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "forked tongue": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "frill": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "tail": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "fangs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "membrane",
+          "spike"
+        ]
+      },
+      "carapace": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "shell": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "dorsal spines": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "nictitating membrane": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "heat pits": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "dewlap": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ventral scutes": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "respiratory",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tail rattle": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "osteoderms": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "venom sacs": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "venom"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized",
+          "volatile"
+        ]
+      },
+      "slit pupils": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "casque": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "jaw hinges": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "belly scutes": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "poison fangs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "keratin"
+        ],
+        "systems": [
+          "feeding",
+          "structural",
+          "venom"
+        ],
+        "shapes": [
+          "membrane",
+          "spike"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "neck hood": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "clawed forelimbs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage",
+          "spike"
+        ]
+      }
+    },
+    "amphibian": {
+      "slick skin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "webbed feet": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "gill frills": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "respiratory"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "throat pouch": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "toe pads": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bulging eyes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "poison glands": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "venom"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "soft belly": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tail fin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "vocal sac": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "moist crest": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "suction digits": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "parotoid glands": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "lateral folds": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mucus coating": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "regenerating limbs": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "translucent eyelids": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "egg pouch": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "reproductive"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "breeding pads": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "reproductive"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "sticky tongue": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "permeable skin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      }
+    },
+    "bug": {
+      "chitin": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mandibles": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "antennae": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "compound eyes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "carapace": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "thorax": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "abdomen": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "stinger": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural",
+          "venom"
+        ],
+        "shapes": [
+          "spike"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "pincers": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "wings": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "spinnerets": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh",
+          "silk"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "segmented legs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "proboscis": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "elytra": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "ocelli": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "ovipositor": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "reproductive",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "cerci": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "barbed legs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "pollen baskets": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "silk glands": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh",
+          "silk"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "acid spray nozzle": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin",
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "pressurized",
+          "volatile"
+        ]
+      },
+      "thoracic plates": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "grasping forelegs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "moulting shell": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      }
+    },
+    "fish": {
+      "scales": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "scale"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "fins": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "gills": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "barbels": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "feeding"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "lateral line": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "dorsal fin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "tail fin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "swim bladder": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "jaw plates": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "whisker spines": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "operculum": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bioluminescent lure": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "fin rays": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "adipose fin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "pelvic fins": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "pectoral fins": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "anal fin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "caudal peduncle": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "electroreceptors": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ampullae": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "sensory"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "swim muscles": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "armored scutes": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "scale"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "transparent eyelids": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      }
+    },
+    "cephalopod": {
+      "tentacles": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "suckers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "beak": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "mantle": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "siphon": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "chromatophores": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ink sac": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "fins": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "hook-lined arms": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "fluidics",
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "line"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "lamp eyes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "soft boneless body": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "venom gland": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "venom"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized",
+          "volatile"
+        ]
+      },
+      "cuttlebone": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "bone",
+          "chitin"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "statocysts": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "arm crown": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "skin papillae": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "grasping clubs": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "luminous organs": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "radial nerves": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "neural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "jet funnel": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "poison beak": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "chitin"
+        ],
+        "systems": [
+          "feeding",
+          "structural",
+          "venom"
+        ],
+        "shapes": [
+          "spike"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "color-shift skin": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "sensory filaments": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "flesh"
+        ],
+        "systems": [
+          "electronic",
+          "sensory"
+        ],
+        "shapes": [
+          "line",
+          "sensor"
+        ],
+        "states": [
+          "charged"
+        ]
+      }
+    },
+    "plantfolk": {
+      "bark": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "vines": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "line"
+        ]
+      },
+      "thorns": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "petals": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "leaves": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "roots": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "line"
+        ]
+      },
+      "seed pods": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "pollen sacs": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant",
+          "spore"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "tendrils": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "line"
+        ]
+      },
+      "sap veins": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "plant"
+        ],
+        "systems": [
+          "circulatory",
+          "fluidics"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "blossoms": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mossy growth": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bracts": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "cambium layer": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tubers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bulbs": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "seed crown": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "fruiting body": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "plant"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bark plates": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "bark knots": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "lichen crust": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant"
+        ],
+        "systems": [
+          "integument",
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "needle clusters": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "woody stems": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "wood"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "seed fluff": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "plant",
+          "spore"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "nectar wells": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "plant"
+        ],
+        "systems": [
+          "circulatory",
+          "fluidics"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      }
+    },
+    "fungal": {
+      "cap": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "gills": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument",
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spores": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal",
+          "spore"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mycelial strands": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "fungal"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "stalk": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "puff sac": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "shelf growth": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spore vents": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal",
+          "spore"
+        ],
+        "systems": [
+          "integument",
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mold fuzz": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "rhizomorphs": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bioluminescent patches": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "porous flesh": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hyphae": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "fungal"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "veil": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "volva": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ring collar": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spore dust": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal",
+          "spore"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "fungal bloom": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "rot pockets": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "nodular growths": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "branching fruiting stalks": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "damp flesh": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fungal"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "rootlike mats": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fiber",
+          "fungal"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      }
+    },
+    "gelatinous": {
+      "ooze membrane": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "membrane"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "pseudopods": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "nucleus core": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "suspended eyes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "cilia fringe": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "digestive sac": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "gel"
+        ],
+        "systems": [
+          "digestive",
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "translucent flesh": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "acid vesicles": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "gel"
+        ],
+        "systems": [
+          "fluidics",
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized",
+          "volatile"
+        ]
+      },
+      "slime trail": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "internal float sacs": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "gel"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "tendril lashes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "elastic mass": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "contractile vacuole": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "gel"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "suspended organelles": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "mesoglea": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "pressure bladders": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "fluid",
+          "gel"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "engulfing maw": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "digestive",
+          "feeding",
+          "locomotion"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "digestive threads": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "digestive"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "gel cortex": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "reflective film": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic"
+        ],
+        "materials": [
+          "gel"
+        ],
+        "systems": [
+          "integument"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      }
+    },
+    "crystalline": {
+      "crystal plates": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "quartz spines": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "geode core": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "mineral veins": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "mineral_slurry"
+        ],
+        "systems": [
+          "circulatory",
+          "fluidics"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "obsidian claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "granite hide": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "shard crest": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "faceted eyes": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "gemstone nodules": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ore tendons": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "mineral_slurry"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "sand glands": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "mineral_slurry",
+          "sand"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "resonance chamber": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "crystal lattice": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "basalt limbs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "agate bands": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "mineral crust": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "pressure fissures": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "glittering dust vents": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "mineral_slurry",
+          "sand"
+        ],
+        "systems": [
+          "integument",
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "gemstone teeth": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "feeding",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "seismic nodes": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "sac"
+        ]
+      },
+      "mica frills": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "lava channels": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "magma",
+          "mineral_slurry"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "petrified joints": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mineral"
+        ],
+        "materials": [
+          "crystal",
+          "stone"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      }
+    },
+    "elemental": {
+      "plasma sheath": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "corona": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "arc tendrils": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "light core": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "power"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "ion trail": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "heat halo": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "flare vents": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "integument",
+          "power",
+          "respiratory"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "static field": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "pulse nodes": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "power"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "photon wings": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "locomotion",
+          "power"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "spark claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "locomotion",
+          "power",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "radiance veil": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "membrane"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "discharge nodes": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "power"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "magnetic halo": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "storm eye": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "power",
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "lightning spine": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "power",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "flare plume": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "membrane"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "thermal wake": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "integument",
+          "power"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "ionized gaze": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy",
+          "plasma"
+        ],
+        "systems": [
+          "power",
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "luminescent core filaments": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "energetic"
+        ],
+        "materials": [
+          "energy"
+        ],
+        "systems": [
+          "power"
+        ],
+        "shapes": [
+          "line",
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      }
+    },
+    "robotic": {
+      "chassis": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "servos": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "pistons": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "optic sensors": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "manipulator arms": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "antenna mast": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "gyroscope": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "treads": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "reinforced plating": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "exhaust vents": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "respiratory",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tool mounts": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "power core": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "power",
+          "structural"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "actuator joints": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hydraulic lines": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "polymer"
+        ],
+        "systems": [
+          "fluidics",
+          "hydraulic"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "cooling fans": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "cooling",
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      },
+      "sensor array": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "manipulator claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "shock absorbers": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "targeting lens": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "ammo hopper": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "articulated spine": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "docking ports": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "maintenance hatch": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "backup battery": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "power",
+          "structural"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "charged",
+          "volatile"
+        ]
+      },
+      "wiring bundles": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fiber",
+          "polymer"
+        ],
+        "systems": [
+          "electronic"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "coolant lines": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "coolant",
+          "polymer"
+        ],
+        "systems": [
+          "cooling",
+          "fluidics"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "lubricant reservoir": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "lubricant",
+          "polymer"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "insulation sleeves": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "polymer"
+        ],
+        "systems": [
+          "electronic"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "fiber conduits": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "fiber",
+          "polymer"
+        ],
+        "systems": [
+          "electronic"
+        ],
+        "shapes": [
+          "line"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "sealant bladder": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "polymer"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "pressurized"
+        ]
+      }
+    },
+    "cybernetic": {
+      "optic implant": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "neural jack": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "neural",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "subdermal armor": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal",
+          "polymer"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "synthetic limb": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal",
+          "polymer"
+        ],
+        "systems": [
+          "locomotion",
+          "structural"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "targeting reticle": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "synthetic"
+        ],
+        "systems": [
+          "electronic",
+          "sensory"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "voice modulator": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "reflex booster": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "spinal stabilizer": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "neural",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "dermal weave": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "polymer",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "memory cache": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "neural",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "biometric scanner": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "pain editor": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "cranial port": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "adrenal pump": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "lung filter": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "cardiac regulator": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "haptic mesh": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing"
+        ]
+      },
+      "smart blood": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "synthetic"
+        ],
+        "systems": [
+          "circulatory",
+          "fluidics"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      },
+      "retinal overlay": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "synthetic"
+        ],
+        "systems": [
+          "organ"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "combat stim injector": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "cochlear implant": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal"
+        ],
+        "systems": [
+          "electronic",
+          "neural",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "charged"
+        ]
+      },
+      "dermal projector": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "metal",
+          "polymer"
+        ],
+        "systems": [
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "nanite reservoir": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "mechanical"
+        ],
+        "materials": [
+          "electronic",
+          "fluid",
+          "synthetic"
+        ],
+        "systems": [
+          "fluidics"
+        ],
+        "shapes": [
+          "sac"
+        ],
+        "states": [
+          "fluid_bearing",
+          "pressurized"
+        ]
+      }
+    },
+    "ghostly": {
+      "skull": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "exposed ribs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ghost flame eyes": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "mystical",
+          "sensory"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "ectoplasmic veil": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "membrane"
+        ]
+      },
+      "spectral hands": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "appendage"
+        ]
+      },
+      "bone claws": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "locomotion",
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "soul anchor": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "hollow chest": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "ritual scars": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "funerary wrappings": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "cloth",
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "shadow tendrils": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "line"
+        ]
+      },
+      "lingering jaw": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "feeding",
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "phylactery shard": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone",
+          "spectral"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ],
+        "states": [
+          "volatile"
+        ]
+      },
+      "grave-dust aura": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "cracked teeth": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "feeding",
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "bone spurs": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "withered fingers": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "locomotion",
+          "mystical"
+        ],
+        "shapes": [
+          "appendage",
+          "membrane"
+        ]
+      },
+      "spectral spine": {
+        "exposure": "internal",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone",
+          "spectral"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "spike"
+        ]
+      },
+      "cursed brand": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "embalmed flesh": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "empty eye sockets": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "sensory",
+          "structural"
+        ],
+        "shapes": [
+          "sensor"
+        ]
+      },
+      "soul chains": {
+        "exposure": "internal",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "tomb sigils": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      },
+      "funerary mask": {
+        "exposure": "external",
+        "hardness": "hard",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "bone"
+        ],
+        "systems": [
+          "mystical",
+          "structural"
+        ],
+        "shapes": [
+          "covering"
+        ]
+      },
+      "ether smoke": {
+        "exposure": "external",
+        "hardness": "soft",
+        "natures": [
+          "organic",
+          "spectral"
+        ],
+        "materials": [
+          "flesh",
+          "spectral"
+        ],
+        "systems": [
+          "integument",
+          "mystical"
+        ],
+        "shapes": [
+          "mass"
+        ]
+      }
+    }
+  },
+  "attack_types": {
+    "slash": {
+      "description": "Edged cutting, slicing, and sawing trauma.",
+      "candidate_outcomes": [
+        "abrasion",
+        "avulsion",
+        "bleeding",
+        "cut",
+        "dismemberment",
+        "gash",
+        "gouge",
+        "hemorrhage",
+        "laceration",
+        "removal",
+        "ripping",
+        "severing",
+        "shredding",
+        "tear",
+        "tearing"
+      ]
+    },
+    "pierce": {
+      "description": "Point-first puncture and stabbing trauma.",
+      "candidate_outcomes": [
+        "bleeding",
+        "embedding",
+        "envenomation",
+        "gouge",
+        "hemorrhage",
+        "impalement",
+        "leaking",
+        "penetration",
+        "perforation",
+        "poisoning",
+        "puncture",
+        "puncturing",
+        "rupture",
+        "skewering"
+      ]
+    },
+    "blunt": {
+      "description": "Impact trauma that jars, bruises, cracks, or dislocates.",
+      "candidate_outcomes": [
+        "bruise",
+        "collapse",
+        "compression",
+        "contusion",
+        "cracking",
+        "denting",
+        "detachment",
+        "dislocation",
+        "flattening",
+        "fracture",
+        "fracture line",
+        "hairline crack",
+        "mangling",
+        "rupture"
+      ]
+    },
+    "crush": {
+      "description": "High-force compression that deforms, shatters, or pulps.",
+      "candidate_outcomes": [
+        "buckling",
+        "catastrophic failure",
+        "collapse",
+        "compression",
+        "crumpling",
+        "crushing",
+        "detachment",
+        "disruption",
+        "flattening",
+        "mangling",
+        "pulping",
+        "separation",
+        "shattering",
+        "splintering"
+      ]
+    },
+    "heat": {
+      "description": "Fire, plasma, or thermal overload.",
+      "candidate_outcomes": [
+        "burning",
+        "burnout",
+        "cauterization",
+        "charring",
+        "melting",
+        "overload burn",
+        "scorching",
+        "slagging",
+        "vaporization",
+        "withering"
+      ]
+    },
+    "cold": {
+      "description": "Freezing and cryogenic embrittlement.",
+      "candidate_outcomes": [
+        "cracking",
+        "crystallization",
+        "freezing",
+        "frostbite",
+        "hairline crack",
+        "shattering"
+      ]
+    },
+    "acid": {
+      "description": "Corrosive chemical dissolution.",
+      "candidate_outcomes": [
+        "acid burn",
+        "contamination",
+        "corrosion",
+        "dissolution",
+        "etching",
+        "leaking",
+        "melting",
+        "perforation"
+      ]
+    },
+    "shock": {
+      "description": "Electrical, arc, or surge damage.",
+      "candidate_outcomes": [
+        "burnout",
+        "charring",
+        "depowering",
+        "destabilization",
+        "disruption",
+        "overload",
+        "overload burn",
+        "shorting"
+      ]
+    },
+    "toxin": {
+      "description": "Poisons, venoms, pathogens, and parasites.",
+      "candidate_outcomes": [
+        "contamination",
+        "envenomation",
+        "infection",
+        "infestation",
+        "necrosis",
+        "poisoning",
+        "rotting"
+      ]
+    },
+    "decay": {
+      "description": "Rot, entropy, desiccation, and long-term breakdown.",
+      "candidate_outcomes": [
+        "contamination",
+        "decay",
+        "dehydration",
+        "desiccation",
+        "necrosis",
+        "rotting",
+        "rusting",
+        "unraveling",
+        "unravelment",
+        "withering"
+      ]
+    },
+    "disrupt": {
+      "description": "Mystic, energetic, or systemic destabilization.",
+      "candidate_outcomes": [
+        "catastrophic failure",
+        "depressurization",
+        "destabilization",
+        "distortion",
+        "disruption",
+        "implosion",
+        "shorting",
+        "unraveling",
+        "unravelment",
+        "venting"
+      ]
+    }
+  },
+  "damage_outcomes": {
+    "abrasion": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "acid burn": {
+      "weight": 5,
+      "requires": {
+        "materials_none": [
+          "energy"
+        ]
+      }
+    },
+    "avulsion": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "external"
+        ],
+        "shapes_any": [
+          "appendage",
+          "covering"
+        ]
+      },
+      "prefers": {
+        "systems_any": [
+          "locomotion",
+          "integument"
+        ]
+      }
+    },
+    "bending": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "bleeding": {
+      "weight": 8,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "systems_any": [
+          "circulatory"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "pressurized",
+          "fluid_bearing"
+        ]
+      }
+    },
+    "bruise": {
+      "weight": 8,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "buckling": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "burning": {
+      "weight": 8
+    },
+    "burnout": {
+      "weight": 8,
+      "requires": {
+        "systems_any": [
+          "electronic",
+          "power"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "charged"
+        ]
+      }
+    },
+    "catastrophic failure": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "natures_any": [
+          "energetic",
+          "mechanical",
+          "mineral"
+        ]
+      }
+    },
+    "cauterization": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic"
+        ]
+      }
+    },
+    "charring": {
+      "weight": 5
+    },
+    "chipping": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "collapse": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "internal"
+        ]
+      }
+    },
+    "compression": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "internal"
+        ]
+      }
+    },
+    "contamination": {
+      "weight": 6,
+      "requires": {
+        "natures_any": [
+          "mechanical",
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "contusion": {
+      "weight": 7,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "corrosion": {
+      "weight": 8,
+      "requires": {
+        "materials_any": [
+          "crystal",
+          "metal",
+          "polymer",
+          "stone",
+          "synthetic"
+        ]
+      }
+    },
+    "cracking": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "crumpling": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "crushing": {
+      "weight": 8
+    },
+    "crystallization": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "cut": {
+      "weight": 8,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "decay": {
+      "weight": 6,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "dehydration": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic"
+        ]
+      }
+    },
+    "denting": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "depowering": {
+      "weight": 5,
+      "requires": {
+        "systems_any": [
+          "power"
+        ]
+      }
+    },
+    "depressurization": {
+      "weight": 5,
+      "requires": {
+        "states_any": [
+          "pressurized"
+        ]
+      }
+    },
+    "desiccation": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic"
+        ]
+      }
+    },
+    "destabilization": {
+      "weight": 5,
+      "requires": {
+        "natures_any": [
+          "energetic",
+          "mechanical",
+          "mineral",
+          "spectral"
+        ]
+      }
+    },
+    "detachment": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "dislocation": {
+      "weight": 5
+    },
+    "dismemberment": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "external"
+        ],
+        "shapes_any": [
+          "appendage"
+        ]
+      },
+      "prefers": {
+        "systems_any": [
+          "locomotion"
+        ]
+      }
+    },
+    "disruption": {
+      "weight": 5,
+      "requires": {
+        "natures_any": [
+          "energetic",
+          "mechanical",
+          "mineral",
+          "spectral"
+        ]
+      }
+    },
+    "dissolution": {
+      "weight": 5,
+      "requires": {
+        "materials_none": [
+          "energy"
+        ]
+      }
+    },
+    "distortion": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "draining": {
+      "weight": 7,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "systems_any": [
+          "circulatory",
+          "cooling",
+          "fluidics",
+          "hydraulic",
+          "venom"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "pressurized",
+          "fluid_bearing"
+        ]
+      }
+    },
+    "embedding": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "envenomation": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "internal"
+        ],
+        "natures_any": [
+          "organic"
+        ],
+        "systems_any": [
+          "circulatory",
+          "fluidics",
+          "venom"
+        ]
+      }
+    },
+    "etching": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_any": [
+          "bone",
+          "crystal",
+          "metal",
+          "stone",
+          "wood"
+        ]
+      }
+    },
+    "flattening": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "fracture": {
+      "weight": 9,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      },
+      "prefers": {
+        "systems_any": [
+          "structural"
+        ]
+      }
+    },
+    "fracture line": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "systems_any": [
+          "structural"
+        ]
+      }
+    },
+    "freezing": {
+      "weight": 7,
+      "requires": {
+        "materials_none": [
+          "energy"
+        ]
+      }
+    },
+    "frostbite": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "external"
+        ],
+        "natures_any": [
+          "organic"
+        ]
+      }
+    },
+    "gash": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "gouge": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "hairline crack": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "systems_any": [
+          "structural"
+        ]
+      }
+    },
+    "hemorrhage": {
+      "weight": 7,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "systems_any": [
+          "circulatory"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "pressurized",
+          "fluid_bearing"
+        ]
+      }
+    },
+    "impalement": {
+      "weight": 5
+    },
+    "implosion": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "exposure_any": [
+          "internal"
+        ],
+        "states_any": [
+          "charged",
+          "pressurized"
+        ]
+      }
+    },
+    "infection": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "infestation": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "laceration": {
+      "weight": 9,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "leaking": {
+      "weight": 8,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "systems_any": [
+          "circulatory",
+          "cooling",
+          "fluidics",
+          "hydraulic",
+          "venom"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "pressurized",
+          "fluid_bearing"
+        ]
+      }
+    },
+    "mangling": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "melting": {
+      "weight": 5
+    },
+    "necrosis": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "overload": {
+      "weight": 8,
+      "requires": {
+        "systems_any": [
+          "electronic",
+          "power"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "charged"
+        ]
+      }
+    },
+    "overload burn": {
+      "weight": 5,
+      "requires": {
+        "systems_any": [
+          "electronic",
+          "power"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "charged"
+        ]
+      }
+    },
+    "oxidation": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "penetration": {
+      "weight": 8
+    },
+    "perforation": {
+      "weight": 5
+    },
+    "poisoning": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "internal"
+        ],
+        "natures_any": [
+          "organic"
+        ],
+        "systems_any": [
+          "circulatory",
+          "digestive",
+          "fluidics",
+          "respiratory"
+        ]
+      }
+    },
+    "pulping": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "internal"
+        ]
+      }
+    },
+    "puncture": {
+      "weight": 8
+    },
+    "puncturing": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "removal": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "ripping": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "rotting": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    },
+    "rupture": {
+      "weight": 7,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "rusting": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_any": [
+          "metal"
+        ]
+      }
+    },
+    "scorching": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "scrape": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "separation": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "severing": {
+      "weight": 5,
+      "requires": {
+        "exposure_any": [
+          "external"
+        ]
+      }
+    },
+    "shattering": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "shearing": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "shorting": {
+      "weight": 9,
+      "requires": {
+        "systems_any": [
+          "electronic",
+          "power"
+        ]
+      },
+      "prefers": {
+        "states_any": [
+          "charged"
+        ]
+      }
+    },
+    "shredding": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "skewering": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "slagging": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_any": [
+          "crystal",
+          "metal",
+          "stone"
+        ]
+      }
+    },
+    "splintering": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "tear": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "tearing": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ]
+      }
+    },
+    "unraveling": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_any": [
+          "cloth",
+          "fiber",
+          "keratin",
+          "silk",
+          "spectral",
+          "synthetic"
+        ]
+      }
+    },
+    "unravelment": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_any": [
+          "cloth",
+          "fiber",
+          "keratin",
+          "silk",
+          "spectral",
+          "synthetic"
+        ]
+      }
+    },
+    "vaporization": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ],
+        "materials_none": [
+          "spectral"
+        ]
+      }
+    },
+    "venting": {
+      "weight": 5,
+      "requires": {
+        "states_any": [
+          "charged",
+          "pressurized"
+        ]
+      }
+    },
+    "warping": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "hard"
+        ]
+      }
+    },
+    "withering": {
+      "weight": 5,
+      "requires": {
+        "hardness_any": [
+          "soft"
+        ],
+        "natures_any": [
+          "organic",
+          "spectral"
+        ]
+      }
+    }
+  }
+}
+    </script>
+
+    <script>
+      const state = {
+        data: null,
+        partEntries: [],
+        partsById: new Map(),
+        lastResult: null,
+      };
+
+      const elements = {
+        attackType: document.getElementById("attackType"),
+        archetype: document.getElementById("archetype"),
+        partSelect: document.getElementById("partSelect"),
+        exposureFilter: document.getElementById("exposureFilter"),
+        hardnessFilter: document.getElementById("hardnessFilter"),
+        materialFilter: document.getElementById("materialFilter"),
+        systemFilter: document.getElementById("systemFilter"),
+        generateBtn: document.getElementById("generateBtn"),
+        rerollBtn: document.getElementById("rerollBtn"),
+        topRerollBtn: document.getElementById("topRerollBtn"),
+        clearBtn: document.getElementById("clearBtn"),
+        resultTitle: document.getElementById("resultTitle"),
+        resultSubtitle: document.getElementById("resultSubtitle"),
+        resultBody: document.getElementById("resultBody"),
+      };
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => {
+          const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          };
+          return map[char];
+        });
+      }
+
+      function humanizeKey(value) {
+        return String(value)
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      }
+
+      function titleCase(value) {
+        return String(value).replace(/\b\w/g, (letter) => letter.toUpperCase());
+      }
+
+      function capitalizeFirst(value) {
+        const text = String(value);
+        return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+      }
+
+      function enableControls(enabled) {
+        [
+          elements.attackType,
+          elements.archetype,
+          elements.partSelect,
+          elements.exposureFilter,
+          elements.hardnessFilter,
+          elements.materialFilter,
+          elements.systemFilter,
+          elements.generateBtn,
+          elements.rerollBtn,
+          elements.topRerollBtn,
+          elements.clearBtn,
+        ].forEach((node) => {
+          node.disabled = !enabled;
+        });
+      }
+
+      function setOptions(select, options, selectedValue = null) {
+        select.innerHTML = options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}"${
+                option.value === selectedValue ? " selected" : ""
+              }>${escapeHtml(option.label)}</option>`,
+          )
+          .join("");
+      }
+
+      function flattenPartEntries(data) {
+        const entries = [];
+        Object.entries(data.body_parts).forEach(([archetypeKey, parts]) => {
+          const archetypeLabel = humanizeKey(archetypeKey);
+          Object.entries(parts).forEach(([partName, traits]) => {
+            const id = `${archetypeKey}::${partName}`;
+            const entry = {
+              id,
+              archetypeKey,
+              archetypeLabel,
+              partName,
+              label: `${archetypeLabel} — ${titleCase(partName)}`,
+              traits,
+            };
+            entries.push(entry);
+          });
+        });
+        return entries.sort((a, b) => a.label.localeCompare(b.label));
+      }
+
+      function getTraitValues(entry, axis) {
+        const value = entry.traits[axis];
+        if (Array.isArray(value)) {
+          return value;
+        }
+        if (value == null || value === "") {
+          return [];
+        }
+        return [value];
+      }
+
+      function matchesAxisRule(entry, ruleKey, expectedValues) {
+        const axis = ruleKey.replace(/_(any|none)$/, "");
+        const partValues = getTraitValues(entry, axis);
+        if (ruleKey.endsWith("_any")) {
+          return expectedValues.some((value) => partValues.includes(value));
+        }
+        if (ruleKey.endsWith("_none")) {
+          return expectedValues.every((value) => !partValues.includes(value));
+        }
+        return false;
+      }
+
+      function matchesRequirements(entry, rules = {}) {
+        return Object.entries(rules).every(([ruleKey, expectedValues]) =>
+          matchesAxisRule(entry, ruleKey, expectedValues),
+        );
+      }
+
+      function getPreferenceMultiplier(entry, prefers = {}) {
+        const matchedRules = Object.entries(prefers).filter(([ruleKey, values]) =>
+          matchesAxisRule(entry, ruleKey, values),
+        ).length;
+        return 1 + matchedRules * 0.6;
+      }
+
+      function getCompatibleOutcomes(entry, attackKey) {
+        if (!state.data || !entry || !attackKey) {
+          return [];
+        }
+        const attack = state.data.attack_types[attackKey];
+        if (!attack) {
+          return [];
+        }
+        return attack.candidate_outcomes
+          .map((outcomeKey) => {
+            const definition = state.data.damage_outcomes[outcomeKey];
+            if (!definition || !matchesRequirements(entry, definition.requires)) {
+              return null;
+            }
+            return {
+              key: outcomeKey,
+              label: titleCase(outcomeKey),
+              weight: definition.weight || 1,
+              adjustedWeight:
+                (definition.weight || 1) *
+                getPreferenceMultiplier(entry, definition.prefers),
+              requires: definition.requires || {},
+              prefers: definition.prefers || {},
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.adjustedWeight - a.adjustedWeight || a.label.localeCompare(b.label));
+      }
+
+      function getInjuryOptions(entry, forcedAttackKey = null) {
+        if (!entry) {
+          return [];
+        }
+
+        const attackKeys = forcedAttackKey
+          ? [forcedAttackKey]
+          : getCompatibleAttackKeys(entry);
+
+        return attackKeys.flatMap((attackKey) =>
+          getCompatibleOutcomes(entry, attackKey).map((outcome) => ({
+            entry,
+            attackKey,
+            outcome,
+            weight: outcome.adjustedWeight,
+          })),
+        );
+      }
+
+      function getCompatibleAttackKeys(entry) {
+        if (!state.data || !entry) {
+          return [];
+        }
+        return Object.keys(state.data.attack_types).filter(
+          (attackKey) => getCompatibleOutcomes(entry, attackKey).length > 0,
+        );
+      }
+
+      function getSelectedAttackKey() {
+        return elements.attackType.value === "random" ? null : elements.attackType.value;
+      }
+
+      function getSelectedPartEntry() {
+        const value = elements.partSelect.value;
+        if (!value || value === "random") {
+          return null;
+        }
+        return state.partsById.get(value) || null;
+      }
+
+      function entryMatchesFilters(entry, attackKey = null) {
+        if (elements.archetype.value !== "any" && entry.archetypeKey !== elements.archetype.value) {
+          return false;
+        }
+        if (
+          elements.exposureFilter.value !== "any" &&
+          entry.traits.exposure !== elements.exposureFilter.value
+        ) {
+          return false;
+        }
+        if (
+          elements.hardnessFilter.value !== "any" &&
+          entry.traits.hardness !== elements.hardnessFilter.value
+        ) {
+          return false;
+        }
+        if (
+          elements.materialFilter.value !== "any" &&
+          !getTraitValues(entry, "materials").includes(elements.materialFilter.value)
+        ) {
+          return false;
+        }
+        if (
+          elements.systemFilter.value !== "any" &&
+          !getTraitValues(entry, "systems").includes(elements.systemFilter.value)
+        ) {
+          return false;
+        }
+        if (attackKey && getCompatibleOutcomes(entry, attackKey).length === 0) {
+          return false;
+        }
+        return true;
+      }
+
+      function getFilteredParts(attackKey = null) {
+        return state.partEntries.filter((entry) => entryMatchesFilters(entry, attackKey));
+      }
+
+      function pickWeighted(items, getWeight) {
+        const total = items.reduce((sum, item) => sum + Math.max(0, getWeight(item)), 0);
+        if (total <= 0) {
+          return items[0] || null;
+        }
+        let roll = Math.random() * total;
+        for (const item of items) {
+          roll -= Math.max(0, getWeight(item));
+          if (roll <= 0) {
+            return item;
+          }
+        }
+        return items[items.length - 1] || null;
+      }
+
+      function describeAttack(attackKey) {
+        const attack = state.data.attack_types[attackKey];
+        return attack ? attack.description : "";
+      }
+
+      function getInjuryPhrase(outcomeLabel, entry) {
+        const preposition =
+          entry.traits.exposure === "internal"
+            ? entry.traits.hardness === "hard"
+              ? "in"
+              : "of"
+            : entry.traits.hardness === "hard"
+              ? "of"
+              : "to";
+        return `${capitalizeFirst(entry.archetypeLabel.toLowerCase())} entity - ${capitalizeFirst(
+          outcomeLabel.toLowerCase(),
+        )} ${preposition} the ${entry.partName}`;
+      }
+
+      function renderResult(result) {
+        if (!result) {
+          elements.resultTitle.textContent = "No valid injury";
+          elements.resultSubtitle.textContent = "Adjust filters and try again.";
+          elements.resultBody.className = "empty muted";
+          elements.resultBody.innerHTML = "The current filters do not produce a compatible injury.";
+          return;
+        }
+
+        const { entry, attackKey, outcome } = result;
+        const phrase = getInjuryPhrase(outcome.label, entry);
+        const partTraitChips = [
+          `exposure: ${entry.traits.exposure}`,
+          `hardness: ${entry.traits.hardness}`,
+          ...getTraitValues(entry, "materials").map((value) => `material: ${value}`),
+          ...getTraitValues(entry, "systems").map((value) => `system: ${value}`),
+          ...getTraitValues(entry, "states").map((value) => `state: ${value}`),
+        ];
+
+        elements.resultTitle.textContent = phrase;
+        elements.resultSubtitle.textContent = `${humanizeKey(attackKey).toLowerCase()} attack`;
+        elements.resultBody.className = "";
+        elements.resultBody.innerHTML = `
+          <div class="result-detail-grid">
+            <section class="result-detail-block">
+              <h3>Damage Description</h3>
+              <p class="muted">${escapeHtml(describeAttack(attackKey))}</p>
+            </section>
+            <section class="result-detail-block">
+              <h3>Targeted Traits</h3>
+              <div class="chipline">
+                ${partTraitChips.map((chip) => `<span class="chip">${escapeHtml(chip)}</span>`).join("")}
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      function rebuildPartSelect() {
+        const previousValue = elements.partSelect.value;
+        const fixedAttack = getSelectedAttackKey();
+        const candidates = fixedAttack
+          ? getFilteredParts(fixedAttack)
+          : getFilteredParts().filter((entry) => getCompatibleAttackKeys(entry).length > 0);
+
+        const options = [
+          { value: "random", label: "Random matching part" },
+          ...candidates.map((entry) => ({ value: entry.id, label: entry.label })),
+        ];
+
+        const nextValue = options.some((option) => option.value === previousValue)
+          ? previousValue
+          : "random";
+        setOptions(elements.partSelect, options, nextValue);
+      }
+
+      function refreshViews() {
+        rebuildPartSelect();
+      }
+
+      function resolveRollContext() {
+        const selectedPart = getSelectedPartEntry();
+        const selectedAttack = getSelectedAttackKey();
+
+        let entry = selectedPart;
+        if (!entry) {
+          const candidates = selectedAttack
+            ? getFilteredParts(selectedAttack)
+            : getFilteredParts().filter((candidate) => getCompatibleAttackKeys(candidate).length > 0);
+          entry = pickWeighted(candidates, () => 1);
+        }
+        if (!entry) {
+          return null;
+        }
+
+        let attackKey = selectedAttack;
+        if (!attackKey) {
+          const compatibleAttackKeys = getCompatibleAttackKeys(entry);
+          attackKey = pickWeighted(compatibleAttackKeys, () => 1);
+        }
+        if (!attackKey) {
+          return null;
+        }
+
+        const outcomes = getCompatibleOutcomes(entry, attackKey);
+        if (!outcomes.length) {
+          return null;
+        }
+
+        const outcome = pickWeighted(outcomes, (item) => item.adjustedWeight);
+        return { entry, attackKey, outcome, outcomes };
+      }
+
+      function generateInjury() {
+        const result = resolveRollContext();
+        state.lastResult = result;
+        renderResult(result);
+      }
+
+      function rerollSimilarInjury() {
+        const currentEntry = state.lastResult && state.lastResult.entry;
+        if (!currentEntry) {
+          generateInjury();
+          return;
+        }
+
+        const forcedAttackKey = getSelectedAttackKey();
+        let candidateEntries = state.partEntries.filter(
+          (entry) =>
+            entry.archetypeKey === currentEntry.archetypeKey &&
+            entryMatchesFilters(entry, forcedAttackKey),
+        );
+
+        if (!candidateEntries.length) {
+          candidateEntries = state.partEntries.filter(
+            (entry) =>
+              entry.archetypeKey === currentEntry.archetypeKey &&
+              (!forcedAttackKey || getCompatibleOutcomes(entry, forcedAttackKey).length > 0),
+          );
+        }
+
+        const options = candidateEntries.flatMap((entry) =>
+          getInjuryOptions(entry, forcedAttackKey),
+        );
+        if (!options.length) {
+          generateInjury();
+          return;
+        }
+
+        const previousSignature =
+          state.lastResult && state.lastResult.outcome
+            ? `${state.lastResult.entry.id}::${state.lastResult.attackKey}::${state.lastResult.outcome.key}`
+            : null;
+
+        let pool = options;
+        if (previousSignature) {
+          const alternatives = options.filter(
+            (option) =>
+              `${option.entry.id}::${option.attackKey}::${option.outcome.key}` !==
+              previousSignature,
+          );
+          if (alternatives.length) {
+            pool = alternatives;
+          }
+        }
+
+        const next = pickWeighted(pool, (item) => item.weight);
+        const outcomes = getCompatibleOutcomes(next.entry, next.attackKey);
+        state.lastResult = {
+          entry: next.entry,
+          attackKey: next.attackKey,
+          outcome: next.outcome,
+          outcomes,
+        };
+        renderResult(state.lastResult);
+      }
+
+      function populateStaticControls() {
+        setOptions(
+          elements.attackType,
+          [
+            { value: "random", label: "Random attack type" },
+            ...Object.keys(state.data.attack_types).map((key) => ({
+              value: key,
+              label: humanizeKey(key),
+            })),
+          ],
+          "random",
+        );
+
+        setOptions(
+          elements.archetype,
+          [
+            { value: "any", label: "Any archetype" },
+            ...Object.keys(state.data.body_parts).map((key) => ({
+              value: key,
+              label: humanizeKey(key),
+            })),
+          ],
+          "any",
+        );
+
+        setOptions(
+          elements.exposureFilter,
+          [
+            { value: "any", label: "Any exposure" },
+            ...state.data.part_trait_axes.exposure.map((value) => ({
+              value,
+              label: titleCase(value),
+            })),
+          ],
+          "any",
+        );
+
+        setOptions(
+          elements.hardnessFilter,
+          [
+            { value: "any", label: "Any hardness" },
+            ...state.data.part_trait_axes.hardness.map((value) => ({
+              value,
+              label: titleCase(value),
+            })),
+          ],
+          "any",
+        );
+
+        setOptions(
+          elements.materialFilter,
+          [
+            { value: "any", label: "Any material" },
+            ...state.data.part_trait_axes.materials.map((value) => ({
+              value,
+              label: humanizeKey(value),
+            })),
+          ],
+          "any",
+        );
+
+        setOptions(
+          elements.systemFilter,
+          [
+            { value: "any", label: "Any system" },
+            ...state.data.part_trait_axes.systems.map((value) => ({
+              value,
+              label: humanizeKey(value),
+            })),
+          ],
+          "any",
+        );
+
+        rebuildPartSelect();
+      }
+
+      function bindEvents() {
+        [
+          elements.attackType,
+          elements.archetype,
+          elements.exposureFilter,
+          elements.hardnessFilter,
+          elements.materialFilter,
+          elements.systemFilter,
+        ].forEach((node) => {
+          node.addEventListener("change", refreshViews);
+        });
+
+        elements.partSelect.addEventListener("change", () => {
+        });
+        elements.generateBtn.addEventListener("click", generateInjury);
+        elements.rerollBtn.addEventListener("click", rerollSimilarInjury);
+        elements.topRerollBtn.addEventListener("click", rerollSimilarInjury);
+
+        elements.clearBtn.addEventListener("click", () => {
+          elements.attackType.value = "random";
+          elements.archetype.value = "any";
+          elements.exposureFilter.value = "any";
+          elements.hardnessFilter.value = "any";
+          elements.materialFilter.value = "any";
+          elements.systemFilter.value = "any";
+          refreshViews();
+        });
+
+      }
+
+      function loadData() {
+        const node = document.getElementById("injuryData");
+        if (!node) {
+          throw new Error("Embedded injury data not found.");
+        }
+        return JSON.parse(node.textContent);
+      }
+
+      function init() {
+        try {
+          state.data = loadData();
+          state.partEntries = flattenPartEntries(state.data);
+          state.partsById = new Map(state.partEntries.map((entry) => [entry.id, entry]));
+          populateStaticControls();
+          bindEvents();
+          enableControls(true);
+          refreshViews();
+          generateInjury();
+        } catch (error) {
+          renderResult(null);
+          elements.resultTitle.textContent = "Could not load embedded data";
+          elements.resultSubtitle.textContent = error.message;
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>
