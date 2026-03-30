@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>octoshrimpy</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <style>
+      body {
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+      }
+
+      .home-card {
+        width: min(32rem, 100%);
+      }
+
+      nav ul {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      nav a[role="button"] {
+        width: 100%;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article class="home-card">
+        <h1>hello, i'm octoshrimpy</h1>
+        <nav>
+          <ul>
+            <li><a href="./tea" role="button">tea</a></li>
+            <li><a href="./name" role="button" class="secondary">name</a></li>
+            <li>
+              <a href="./triune-character" role="button" class="contrast">
+                triune-character
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </article>
+    </main>
+  </body>
+</html>
