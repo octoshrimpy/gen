@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phonetic Ecology Name Generator</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.colors.min.css"
+    />
+    <style>
+      :root {
+        --gap: 1rem;
+      }
+      body {
+        padding: 1rem;
+      }
+      main {
+        /* max-width: 1200px; */
+        margin: 0 auto;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: var(--gap);
+        align-items: start;
+      }
+      .controls {
+        position: sticky;
+        top: 1rem;
+      }
+      .checks {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem 1rem;
+      }
+      .results {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(22rem, auto));
+      }
+      .split-cycle-btn {
+        background: none;
+        border: none;
+        padding: 0.1rem 0.25rem;
+        margin: 0;
+        cursor: pointer;
+        color: var(--pico-muted-color);
+        font-size: 1rem;
+        line-height: 1;
+        opacity: 0.5;
+        transition: opacity 0.15s ease;
+        &:hover { opacity: 1; }
+      }
+      .name-main {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .name-text {
+        font-size: 1.45rem;
+        font-weight: 700;
+        margin: 0;
+      }
+      .muted {
+        color: var(--pico-muted-color);
+        font-size: 0.95rem;
+      }
+      .chipline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+      footer.chipline {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: 0;
+        max-height: 3.5rem;
+        overflow: hidden;
+        transition: max-height 0.2s ease-in-out;
+        z-index: 1;
+      }
+      footer.chipline:hover,
+      article.name-row:has(.syllables:hover) footer.chipline {
+        max-height: 5rem;
+      }
+      footer.chipline::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1rem;
+        background: linear-gradient(to top, var(--pico-card-background-color), transparent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+      }
+      footer.chipline.clipped::after {
+        opacity: 1;
+      }
+      footer.chipline.clipped:hover::after,
+      article.name-row:has(.syllables:hover) footer.chipline.clipped::after {
+        opacity: 0;
+      }
+      .chip {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        border: 1px solid var(--pico-color-slate-800);
+
+        border-color: var(--pico-color-slate-750);
+        background: var(--pico-color-slate-850);
+        color: var(--pico-color-slate-400);
+        transition: filter 0.2s ease-in-out;
+      }
+      .chip--lit {
+        filter: saturate(150%) contrast(115%) brightness(150%);
+      }
+      abbr.syllable {
+        border-bottom: 1px dotted;
+        text-decoration: none;
+        cursor: pointer;
+
+        transition: filter 0.2s ease-in-out;
+
+        &:hover {
+          filter: saturate(150%) contrast(115%) brightness(150%);
+        }
+      }
+      .syllable-gap {
+        padding: 0 0.5em;
+      }
+      .chip--texture {
+        border-radius: 0 1rem 0 1rem;
+        border-color: var(--pico-color-jade-750);
+        background: var(--pico-color-jade-850);
+        color: var(--pico-color-jade-400);
+      }
+      .slider-readout {
+        font-size: 0.95rem;
+        color: var(--pico-muted-color);
+        margin-top: -0.35rem;
+        margin-bottom: 0.5rem;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: end;
+
+        :first-child {
+          flex: 1;
+        }
+      }
+      textarea {
+        min-height: 12rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92rem;
+      }
+      @media (max-width: 900px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .controls {
+          position: static;
+        }
+      }
+
+      fieldset:has(label) {
+        gap: 1rem;
+      }
+
+      label {
+        align-content: center;
+        text-wrap: nowrap;
+      }
+
+      .alignEnd {
+        text-align: end;
+        padding-right: 1rem;
+      }
+      .sticky {
+        position: sticky;
+        top: 1rem;
+      }
+      #dataformat {
+        margin-bottom: 0;
+      }
+      #reloadDataBtn {
+        width: -webkit-fill-available;
+      }
+
+      article:has(footer):not(:has(header)) {
+        display: flex;
+        flex-direction: column;
+
+        & *:has(+ footer) {
+          flex-grow: 1;
+          padding-bottom: 1rem;
+        }
+      }
+      article.name-row {
+        position: relative;
+        padding-bottom: 3.5rem;
+      }
+      .syllables {
+        width: fit-content;
+
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Name Generator</h1>
+      </header>
+
+      <div class="grid-2">
+        <aside class="controls">
+          <article>
+            <fieldset role="group">
+              <label> Count </label>
+              <input id="count" type="number" min="1" max="50" value="6" />
+            </fieldset>
+
+            <fieldset role="group">
+              <label> Length </label>
+              <select id="lengthMode">
+                <option value="short" selected>Short</option>
+                <option value="medium">Medium</option>
+                <option value="long">Long</option>
+                <option value="mixed">Mixed</option>
+              </select>
+            </fieldset>
+            <fieldset role="group">
+              <label> Selection </label>
+              <select id="blendMode">
+                <option value="strict">Strict</option>
+                <option value="blended" selected>Blended</option>
+              </select>
+            </fieldset>
+            <label>
+              <input id="splitLongNames" type="checkbox" />
+              Split long names
+            </label>
+            <details closed>
+              <summary>Regions</summary>
+              <div id="regionChecks" class="checks"></div>
+            </details>
+
+            <details closed>
+              <summary>Textures</summary>
+              <div id="textureChecks" class="checks"></div>
+            </details>
+
+            <details closed>
+              <summary>Environment target</summary>
+
+              <fieldset role="group">
+                <label for="altitude">Altitude</label>
+                <span id="altitudeValue" class="alignEnd">5</span>
+              </fieldset>
+              <input id="altitude" type="range" min="0" max="10" value="5" />
+              <small> 0 sea/coast, 10 alpine </small>
+
+              <fieldset role="group">
+                <label for="moisture">Moisture</label>
+                <span id="moistureValue" class="alignEnd">5</span>
+              </fieldset>
+              <input id="moisture" type="range" min="0" max="10" value="5" />
+              <small> 0 arid, 10 rainforest/wetland </small>
+
+              <fieldset role="group">
+                <label for="temperature">Temperature</label>
+                <span id="temperatureValue" class="alignEnd">5</span>
+              </fieldset>
+              <input id="temperature" type="range" min="0" max="10" value="5" />
+              <small> 0 frozen, 10 scorching </small>
+            </details>
+
+            <div class="toolbar">
+              <button id="generateBtn">Generate</button>
+              <button id="rerollBtn" class="secondary">Similar</button>
+            </div>
+          </article>
+
+          <article>
+            <details id="dataformat" closed>
+              <summary>Data format</summary>
+              <p class="muted">
+                Edit or expand the syllables below. Each syllable uses
+                <code>env: [altitude, moisture, temperature]</code>.
+              </p>
+              <textarea id="dataEditor" spellcheck="false"></textarea>
+              <button id="reloadDataBtn" class="secondary">Reload Data</button>
+              <small id="reloadStatus" class="muted"></small>
+            </details>
+          </article>
+        </aside>
+
+        <section class="sticky">
+          <div id="results" class="results"></div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const DEFAULT_SYLLABLES = [
+        {
+          text: "ka",
+          positions: ["start", "middle"],
+          regions: ["rusko_polish", "nordic_lite"],
+          textures: ["harsh", "clean"],
+          env: [7, 3, 2],
+          weight: 9,
+        },
+        {
+          text: "kar",
+          positions: ["start"],
+          regions: ["rusko_polish", "nordic_lite", "greco_roman"],
+          textures: ["harsh"],
+          env: [7, 3, 2],
+          weight: 7,
+        },
+        {
+          text: "kov",
+          positions: ["end"],
+          regions: ["rusko_polish"],
+          textures: ["harsh"],
+          env: [6, 4, 2],
+          weight: 8,
+        },
+        {
+          text: "mir",
+          positions: ["end", "middle", "end"],
+          regions: ["rusko_polish"],
+          textures: ["flowing", "clean"],
+          env: [5, 5, 3],
+          weight: 7,
+        },
+        {
+          text: "ska",
+          positions: ["end", "middle", "end"],
+          regions: ["rusko_polish", "nordic_lite"],
+          textures: ["harsh", "clean"],
+          env: [7, 4, 2],
+          weight: 9,
+        },
+        {
+          text: "vra",
+          positions: ["start", "middle"],
+          regions: ["rusko_polish", "harshlands"],
+          textures: ["harsh"],
+          env: [6, 3, 2],
+          weight: 6,
+        },
+        {
+          text: "drak",
+          positions: ["end", "middle", "end", "first-end"],
+          regions: ["rusko_polish", "nordic_lite"],
+          textures: ["harsh"],
+          env: [8, 3, 1],
+          weight: 5,
+        },
+        {
+          text: "rik",
+          positions: ["end", "middle"],
+          regions: ["nordic_lite"],
+          textures: ["harsh", "clean"],
+          env: [7, 5, 2],
+          weight: 8,
+        },
+        {
+          text: "vald",
+          positions: ["end"],
+          regions: ["nordic_lite"],
+          textures: ["harsh"],
+          env: [7, 4, 2],
+          weight: 6,
+        },
+        {
+          text: "sol",
+          positions: ["start", "middle", "first-end"],
+          regions: ["mediterranean", "greco_roman", "italian_french"],
+          textures: ["flowing", "clean"],
+          env: [2, 4, 7],
+          weight: 8,
+        },
+        {
+          text: "mar",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["mediterranean", "italian_french"],
+          textures: ["flowing"],
+          env: [1, 6, 7],
+          weight: 9,
+        },
+        {
+          text: "cia",
+          positions: ["middle", "end"],
+          regions: ["italian_french", "mediterranean"],
+          textures: ["flowing"],
+          env: [2, 5, 7],
+          weight: 8,
+        },
+        {
+          text: "lio",
+          positions: ["middle", "end"],
+          regions: ["italian_french"],
+          textures: ["flowing", "clean"],
+          env: [3, 5, 6],
+          weight: 7,
+        },
+        {
+          text: "ren",
+          positions: ["middle", "end"],
+          regions: ["italian_french", "greco_roman"],
+          textures: ["flowing"],
+          env: [3, 5, 6],
+          weight: 8,
+        },
+        {
+          text: "tia",
+          positions: ["end", "middle", "first-end"],
+          regions: ["mediterranean", "italian_french"],
+          textures: ["flowing"],
+          env: [2, 5, 7],
+          weight: 7,
+        },
+        {
+          text: "aure",
+          positions: ["start", "middle"],
+          regions: ["greco_roman", "mediterranean"],
+          textures: ["flowing", "ceremonial"],
+          env: [3, 4, 7],
+          weight: 6,
+        },
+        {
+          text: "theo",
+          positions: ["start", "middle", "first-end"],
+          regions: ["greco_roman"],
+          textures: ["flowing", "ceremonial"],
+          env: [4, 4, 6],
+          weight: 6,
+        },
+        {
+          text: "dor",
+          positions: ["start", "middle", "end"],
+          regions: ["greco_roman"],
+          textures: ["clean", "ceremonial"],
+          env: [4, 3, 6],
+          weight: 8,
+        },
+        {
+          text: "ion",
+          positions: ["end"],
+          regions: ["greco_roman"],
+          textures: ["flowing", "ceremonial"],
+          env: [3, 4, 6],
+          weight: 9,
+        },
+        {
+          text: "eus",
+          positions: ["end"],
+          regions: ["greco_roman"],
+          textures: ["ceremonial"],
+          env: [4, 3, 6],
+          weight: 6,
+        },
+        {
+          text: "cass",
+          positions: ["start", "middle", "first-end"],
+          regions: ["greco_roman", "mediterranean"],
+          textures: ["clean"],
+          env: [3, 3, 7],
+          weight: 6,
+        },
+        {
+          text: "ssa",
+          positions: ["middle", "end"],
+          regions: ["south_asian", "desert", "mediterranean"],
+          textures: ["flowing", "hissing"],
+          env: [2, 1, 9],
+          weight: 7,
+        },
+        {
+          text: "sha",
+          positions: ["start", "middle", "end"],
+          regions: ["south_asian", "desert", "islander"],
+          textures: ["flowing", "hissing"],
+          env: [2, 2, 8],
+          weight: 9,
+        },
+        {
+          text: "zha",
+          positions: ["start", "middle"],
+          regions: ["south_asian", "desert"],
+          textures: ["flowing", "hissing"],
+          env: [2, 1, 9],
+          weight: 5,
+        },
+        {
+          text: "ran",
+          positions: ["middle", "end"],
+          regions: ["south_asian"],
+          textures: ["flowing"],
+          env: [4, 5, 8],
+          weight: 8,
+        },
+        {
+          text: "dev",
+          positions: ["start", "middle"],
+          regions: ["south_asian"],
+          textures: ["ceremonial", "clean"],
+          env: [5, 4, 7],
+          weight: 6,
+        },
+        {
+          text: "nai",
+          positions: ["end", "middle", "first-end"],
+          regions: ["south_asian", "islander"],
+          textures: ["flowing"],
+          env: [3, 7, 8],
+          weight: 8,
+        },
+        {
+          text: "lak",
+          positions: ["start", "middle", "end"],
+          regions: ["south_asian"],
+          textures: ["clean"],
+          env: [5, 4, 7],
+          weight: 7,
+        },
+        {
+          text: "vara",
+          positions: ["start", "middle", "first-end"],
+          regions: ["south_asian", "greco_roman"],
+          textures: ["flowing", "ceremonial"],
+          env: [4, 4, 7],
+          weight: 5,
+        },
+        {
+          text: "oa",
+          positions: ["middle", "end"],
+          regions: ["islander"],
+          textures: ["flowing", "soft"],
+          env: [1, 9, 7],
+          weight: 8,
+        },
+        {
+          text: "lua",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["islander"],
+          textures: ["flowing", "soft"],
+          env: [1, 10, 7],
+          weight: 9,
+        },
+        {
+          text: "moe",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["islander"],
+          textures: ["soft", "flowing"],
+          env: [1, 9, 8],
+          weight: 7,
+        },
+        {
+          text: "kai",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["islander", "mediterranean"],
+          textures: ["clean", "flowing"],
+          env: [2, 7, 7],
+          weight: 9,
+        },
+        {
+          text: "nalu",
+          positions: ["start", "middle", "first-end"],
+          regions: ["islander"],
+          textures: ["soft", "flowing"],
+          env: [1, 10, 8],
+          weight: 6,
+        },
+        {
+          text: "tala",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["islander", "south_asian"],
+          textures: ["soft", "flowing"],
+          env: [2, 8, 8],
+          weight: 7,
+        },
+        {
+          text: "khan",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["desert", "harshlands"],
+          textures: ["harsh", "hissing"],
+          env: [3, 0, 10],
+          weight: 8,
+        },
+        {
+          text: "khar",
+          positions: ["start", "middle"],
+          regions: ["desert", "harshlands"],
+          textures: ["harsh", "hissing"],
+          env: [3, 0, 10],
+          weight: 8,
+        },
+        {
+          text: "az",
+          positions: ["start", "middle", "end"],
+          regions: ["desert", "mediterranean"],
+          textures: ["hissing", "clean"],
+          env: [2, 1, 10],
+          weight: 7,
+        },
+        {
+          text: "sul",
+          positions: ["start", "middle", "first-end"],
+          regions: ["desert", "mediterranean"],
+          textures: ["flowing"],
+          env: [2, 1, 9],
+          weight: 7,
+        },
+        {
+          text: "zar",
+          positions: ["end", "middle"],
+          regions: ["desert"],
+          textures: ["hissing", "ceremonial"],
+          env: [3, 1, 10],
+          weight: 8,
+        },
+        {
+          text: "qir",
+          positions: ["start", "middle"],
+          regions: ["desert"],
+          textures: ["harsh"],
+          env: [4, 0, 9],
+          weight: 4,
+        },
+        {
+          text: "vel",
+          positions: ["start", "middle", "end", "first-end"],
+          regions: ["flowlands", "italian_french", "mediterranean"],
+          textures: ["flowing", "clean"],
+          env: [4, 6, 5],
+          weight: 8,
+        },
+        {
+          text: "elia",
+          positions: ["middle", "end", "first-end"],
+          regions: ["italian_french", "flowlands"],
+          textures: ["flowing", "soft"],
+          env: [3, 7, 5],
+          weight: 7,
+        },
+        {
+          text: "lune",
+          positions: ["end", "middle", "first-end"],
+          regions: ["italian_french"],
+          textures: ["soft", "flowing"],
+          env: [2, 6, 4],
+          weight: 7,
+        },
+        {
+          text: "fleur",
+          positions: ["start", "middle", "first-end"],
+          regions: ["italian_french"],
+          textures: ["soft", "flowing"],
+          env: [2, 7, 5],
+          weight: 5,
+        },
+        {
+          text: "noir",
+          positions: ["end", "middle", "first-end"],
+          regions: ["italian_french"],
+          textures: ["soft", "clean"],
+          env: [4, 6, 4],
+          weight: 6,
+        },
+        {
+          text: "thal",
+          positions: ["start", "middle", "end"],
+          regions: ["greco_roman", "harshlands"],
+          textures: ["clean", "ceremonial"],
+          env: [5, 4, 5],
+          weight: 6,
+        },
+        {
+          text: "lin",
+          positions: ["middle", "end", "first-end"],
+          regions: ["flowlands", "islander", "italian_french"],
+          textures: ["soft", "flowing"],
+          env: [3, 7, 5],
+          weight: 8,
+        },
+        {
+          text: "or",
+          positions: ["end", "middle"],
+          regions: ["greco_roman", "rusko_polish", "harshlands"],
+          textures: ["clean"],
+          env: [5, 4, 4],
+          weight: 7,
+        },
+        {
+          text: "um",
+          positions: ["end"],
+          regions: ["greco_roman"],
+          textures: ["ceremonial"],
+          env: [4, 3, 6],
+          weight: 6,
+        },
+        {
+          text: "eth",
+          positions: ["end", "middle"],
+          regions: ["harshlands", "greco_roman"],
+          textures: ["clean", "ceremonial"],
+          env: [6, 2, 4],
+          weight: 4,
+        },
+        {
+          text: "ra",
+          positions: ["start", "middle", "end"],
+          regions: ["mediterranean", "greco_roman", "south_asian", "islander"],
+          textures: ["flowing"],
+          env: [3, 5, 7],
+          weight: 10,
+        },
+        {
+          text: "la",
+          positions: ["start", "middle", "end"],
+          regions: ["mediterranean", "italian_french", "islander", "flowlands"],
+          textures: ["soft", "flowing"],
+          env: [2, 7, 6],
+          weight: 10,
+        },
+        {
+          text: "na",
+          positions: ["start", "middle", "end"],
+          regions: [
+            "south_asian",
+            "islander",
+            "italian_french",
+            "mediterranean",
+          ],
+          textures: ["soft", "flowing"],
+          env: [3, 7, 7],
+          weight: 10,
+        },
+        {
+          text: "sk",
+          positions: ["middle"],
+          regions: ["rusko_polish", "nordic_lite"],
+          textures: ["harsh", "clean"],
+          env: [8, 3, 1],
+          weight: 5,
+        },
+        {
+          text: "vr",
+          positions: ["middle"],
+          regions: ["rusko_polish", "harshlands"],
+          textures: ["harsh"],
+          env: [7, 2, 2],
+          weight: 4,
+        },
+      ];
+
+      const ENV_LABELS = {
+        altitude: [
+          "sea/coast",
+          "tidal",
+          "lowland",
+          "riverplain",
+          "rolling",
+          "upland",
+          "highland",
+          "ridge",
+          "mountain",
+          "subalpine",
+          "alpine",
+        ],
+        moisture: [
+          "arid",
+          "very dry",
+          "dry",
+          "semi-dry",
+          "lean",
+          "balanced",
+          "soft-wet",
+          "humid",
+          "lush",
+          "rain-heavy",
+          "wetland",
+        ],
+        temperature: [
+          "frozen",
+          "very cold",
+          "cold",
+          "cool",
+          "mild-cool",
+          "temperate",
+          "warm",
+          "hot",
+          "very hot",
+          "scorching",
+          "blistering",
+        ],
+      };
+
+      const state = {
+        syllables: structuredClone(DEFAULT_SYLLABLES),
+        lastTarget: [5, 5, 5],
+        lastRows: [],
+      };
+
+      const el = {
+        regionChecks: document.getElementById("regionChecks"),
+        textureChecks: document.getElementById("textureChecks"),
+        count: document.getElementById("count"),
+        lengthMode: document.getElementById("lengthMode"),
+        blendMode: document.getElementById("blendMode"),
+        altitude: document.getElementById("altitude"),
+        moisture: document.getElementById("moisture"),
+        temperature: document.getElementById("temperature"),
+        altitudeValue: document.getElementById("altitudeValue"),
+        moistureValue: document.getElementById("moistureValue"),
+        temperatureValue: document.getElementById("temperatureValue"),
+        results: document.getElementById("results"),
+        generateBtn: document.getElementById("generateBtn"),
+        rerollBtn: document.getElementById("rerollBtn"),
+        dataEditor: document.getElementById("dataEditor"),
+        reloadDataBtn: document.getElementById("reloadDataBtn"),
+        reloadStatus: document.getElementById("reloadStatus"),
+        splitLongNames: document.getElementById("splitLongNames"),
+      };
+
+      function uniqueSorted(values) {
+        return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+      }
+
+      function getAllRegions() {
+        return uniqueSorted(state.syllables.flatMap((s) => s.regions || []));
+      }
+
+      function getAllTextures() {
+        return uniqueSorted(state.syllables.flatMap((s) => s.textures || []));
+      }
+
+      function buildChecks(container, values, prefix, defaults = true) {
+        container.innerHTML = "";
+        values.forEach((value) => {
+          const id = `${prefix}_${value}`;
+          const label = document.createElement("label");
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = value;
+          input.checked = defaults;
+          input.id = id;
+          label.htmlFor = id;
+          label.append(input, document.createTextNode(" " + pretty(value)));
+          container.appendChild(label);
+        });
+      }
+
+      function pretty(value) {
+        return value
+          .replaceAll("_", "/")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+
+      function selectedValues(container) {
+        return [...container.querySelectorAll("input:checked")].map(
+          (input) => input.value,
+        );
+      }
+
+      function currentTargetEnv() {
+        return [
+          Number(el.altitude.value),
+          Number(el.moisture.value),
+          Number(el.temperature.value),
+        ];
+      }
+
+      function renderSliderReadouts() {
+        el.altitudeValue.textContent = el.altitude.value;
+        el.moistureValue.textContent = el.moisture.value;
+        el.temperatureValue.textContent = el.temperature.value;
+      }
+
+      function envDistance(a, b) {
+        return (
+          Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2])
+        );
+      }
+
+      function envClosenessScore(syllableEnv, targetEnv) {
+        return Math.max(1, 31 - envDistance(syllableEnv, targetEnv));
+      }
+
+      function syllableMatches(
+        syllable,
+        selectedRegions,
+        selectedTextures,
+        blendMode,
+      ) {
+        const regionHit =
+          selectedRegions.length === 0 ||
+          (syllable.regions || []).some((r) => selectedRegions.includes(r));
+        const textureHit =
+          selectedTextures.length === 0 ||
+          (syllable.textures || []).some((t) => selectedTextures.includes(t));
+
+        if (blendMode === "strict") {
+          return regionHit && textureHit;
+        }
+
+        if (selectedRegions.length === 0 && selectedTextures.length === 0)
+          return true;
+        return regionHit || textureHit;
+      }
+
+      function pickWeighted(items, getWeight) {
+        const weighted = items
+          .map((item) => ({ item, weight: Math.max(0, getWeight(item)) }))
+          .filter((x) => x.weight > 0);
+        if (weighted.length === 0) return null;
+        const total = weighted.reduce((sum, x) => sum + x.weight, 0);
+        let roll = Math.random() * total;
+        for (const entry of weighted) {
+          roll -= entry.weight;
+          if (roll <= 0) return entry.item;
+        }
+        return weighted[weighted.length - 1].item;
+      }
+
+      function desiredPartCount(lengthMode) {
+        switch (lengthMode) {
+          case "short":
+            return Math.random() < 0.7 ? 2 : 3;
+          case "medium":
+            return Math.random() < 0.2 ? 2 : 3;
+          case "long":
+            return Math.random() < 0.4 ? 3 : 4;
+          default:
+            return [2, 3, 3, 4][Math.floor(Math.random() * 4)];
+        }
+      }
+
+      function applyConsonantBreaks(parts) {
+        const vowels = new Set("aeiouáéíóúàèìòùâêîôûäëïöü");
+        const isVowel = (c) => vowels.has(c.toLowerCase());
+        const isConsonantOnly = (text) => text.split("").every((c) => !isVowel(c));
+        const endsInConsonant = (text) => text.length > 0 && !isVowel(text[text.length - 1]);
+        const startsWithConsonant = (text) => text.length > 0 && !isVowel(text[0]);
+
+        return parts.map((p, i) => {
+          if (isConsonantOnly(p.text)) {
+            const prevEnds = i > 0 && endsInConsonant(parts[i - 1].text);
+            const nextStarts = i < parts.length - 1 && startsWithConsonant(parts[i + 1].text);
+            if (prevEnds || nextStarts) return p.text + "'";
+          }
+          return p.text;
+        });
+      }
+
+      function cleanupName(name) {
+        return name
+          .replace(/([aeiou])\1+/gi, "$1")
+          .replace(/([bcdfghjklmnpqrstvwxyz])\1{2,}/gi, "$1$1")
+          .replace(/^['\-]+|['\-]+$/g, "");
+      }
+
+      function titleCase(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+      }
+
+      function dominantTag(syllableTags, allParts, tagKey) {
+        if (!syllableTags || syllableTags.length === 0) return null;
+        if (syllableTags.length === 1) return syllableTags[0];
+        let best = syllableTags[0],
+          bestCount = 0;
+        for (const tag of syllableTags) {
+          const count = allParts.filter((p) =>
+            (p[tagKey] || []).includes(tag),
+          ).length;
+          if (count > bestCount) {
+            bestCount = count;
+            best = tag;
+          }
+        }
+        return best;
+      }
+
+      function averageEnv(parts) {
+        const n = parts.length || 1;
+        const sum = parts.reduce(
+          (acc, part) => {
+            acc[0] += part.env[0];
+            acc[1] += part.env[1];
+            acc[2] += part.env[2];
+            return acc;
+          },
+          [0, 0, 0],
+        );
+        return sum.map((v) => Math.round((v / n) * 10) / 10);
+      }
+
+      function labelFromEnv(env) {
+        return `${ENV_LABELS.temperature[Math.round(env[2])]}, ${ENV_LABELS.moisture[Math.round(env[1])]}, ${ENV_LABELS.altitude[Math.round(env[0])]}`;
+      }
+
+      function generateOne(targetEnv) {
+        const selectedRegions = selectedValues(el.regionChecks);
+        const selectedTextures = selectedValues(el.textureChecks);
+        const blendMode = el.blendMode.value;
+
+        const eligible = state.syllables.filter((s) =>
+          syllableMatches(s, selectedRegions, selectedTextures, blendMode),
+        );
+        if (eligible.length === 0) {
+          return { error: "No syllables match the current filters." };
+        }
+
+        const starts = eligible.filter((s) => s.positions.includes("start"));
+        const middles = eligible.filter((s) => s.positions.includes("middle"));
+        const ends = eligible.filter((s) => s.positions.includes("end"));
+
+        if (!starts.length || !ends.length) {
+          return {
+            error:
+              "Your current filtered data needs at least one start syllable and one end syllable.",
+          };
+        }
+
+        const partsNeeded = desiredPartCount(el.lengthMode.value);
+        const parts = [];
+
+        const start = pickWeighted(
+          starts,
+          (s) => (s.weight || 1) * envClosenessScore(s.env, targetEnv),
+        );
+        if (!start) return { error: "Could not pick a start syllable." };
+        parts.push(start);
+
+        const middleCount = Math.max(0, partsNeeded - 2);
+        for (let i = 0; i < middleCount; i++) {
+          const chosen = pickWeighted(middles, (s) => {
+            let score = (s.weight || 1) * envClosenessScore(s.env, targetEnv);
+            if (parts[parts.length - 1].text === s.text) return 0;
+            if (parts.some((p) => p.text === s.text)) score *= 0.25;
+            return score;
+          });
+          if (chosen) parts.push(chosen);
+        }
+
+        const end = pickWeighted(ends, (s) => {
+          let score = (s.weight || 1) * envClosenessScore(s.env, targetEnv);
+          if (parts[parts.length - 1].text === s.text) return 0;
+          if (parts.some((p) => p.text === s.text)) score *= 0.35;
+          return score;
+        });
+        if (!end) return { error: "Could not pick an end syllable." };
+        parts.push(end);
+
+        const displayTexts = applyConsonantBreaks(parts);
+        let raw = displayTexts.join("");
+        raw = cleanupName(raw);
+        const name = titleCase(raw);
+
+        const partTags = parts.map((p) => ({
+          region: dominantTag(p.regions, parts, "regions"),
+          texture: dominantTag(p.textures, parts, "textures"),
+        }));
+        const allRegions = uniqueSorted(
+          partTags.map((t) => t.region).filter(Boolean),
+        );
+        const allTextures = uniqueSorted(
+          partTags.map((t) => t.texture).filter(Boolean),
+        );
+        const regions = selectedRegions.length
+          ? allRegions.filter((r) => selectedRegions.includes(r))
+          : allRegions;
+        const textures = selectedTextures.length
+          ? allTextures.filter((t) => selectedTextures.includes(t))
+          : allTextures;
+
+        const splitCandidates = [];
+        let splitAt = null;
+
+        if (parts.length === 4) {
+          splitCandidates.push(2);
+          const firstEndIdx = parts.findIndex(
+            (p, i) => i < 3 && (p.positions || []).includes("first-end"),
+          );
+          if (firstEndIdx !== -1) {
+            const alt = firstEndIdx + 1;
+            if (!splitCandidates.includes(alt)) splitCandidates.push(alt);
+          }
+          splitAt = splitCandidates.length > 1 && Math.random() < 0.5
+            ? splitCandidates[1]
+            : splitCandidates[0];
+        } else if (parts.length === 3) {
+          parts.forEach((p, i) => {
+            if ((p.positions || []).includes("first-end")) {
+              const at = i === 0 ? 1 : i;
+              if (!splitCandidates.includes(at)) splitCandidates.push(at);
+            }
+          });
+          if (splitCandidates.length > 0 && Math.random() < 0.5) {
+            splitAt = splitCandidates[Math.floor(Math.random() * splitCandidates.length)];
+          }
+        }
+
+        return {
+          name,
+          parts,
+          displayTexts,
+          partTags,
+          flavor: labelFromEnv(averageEnv(parts)),
+          regions,
+          textures,
+          splitAt,
+          splitCandidates,
+        };
+      }
+
+      function generateMany(reuseTarget = false) {
+        const targetEnv = reuseTarget ? state.lastTarget : currentTargetEnv();
+        state.lastTarget = targetEnv;
+        const count = Math.max(1, Math.min(50, Number(el.count.value) || 12));
+        const rows = [];
+        const seen = new Set();
+        let attempts = 0;
+        while (rows.length < count && attempts < count * 20) {
+          attempts += 1;
+          const row = generateOne(targetEnv);
+          if (row.error) {
+            renderError(row.error);
+            return;
+          }
+          if (seen.has(row.name)) continue;
+          seen.add(row.name);
+          rows.push(row);
+        }
+        state.lastRows = rows;
+        renderResults(rows);
+      }
+
+      function renderError(message) {
+        el.results.innerHTML = `<article><strong>Could not generate names.</strong><p>${escapeHtml(message)}</p></article>`;
+      }
+
+      function formatNameText(row) {
+        if (el.splitLongNames.checked && row.splitAt !== null) {
+          const h = row.splitAt;
+          const first = row.displayTexts.slice(0, h).join("");
+          const last = row.displayTexts.slice(h).join("");
+          return titleCase(cleanupName(first)) + " " + titleCase(cleanupName(last));
+        }
+        return row.name;
+      }
+
+      function formatSyllables(row) {
+        return row.parts
+          .map((p, i) => {
+            const keys = [row.partTags[i].region, row.partTags[i].texture].filter(Boolean);
+            const isNameStart = i === 0 || (el.splitLongNames.checked && row.splitAt !== null && i === row.splitAt);
+            const dt = row.displayTexts[i];
+            const display = isNameStart ? dt.charAt(0).toUpperCase() + dt.slice(1) : dt;
+            return `<abbr class="syllable" data-keys="${escapeHtml(keys.join(","))}">${escapeHtml(display)}</abbr>`;
+          })
+          .map((abbr, i, arr) => {
+            const sep = el.splitLongNames.checked && row.splitAt !== null && i === row.splitAt - 1
+              ? '<span class="syllable-gap"></span>'
+              : '<span class="muted"> • </span>';
+            return i < arr.length - 1 ? abbr + sep : abbr;
+          })
+          .join("");
+      }
+
+      function renderResults(rows) {
+        if (!rows.length) {
+          renderError("No names generated.");
+          return;
+        }
+
+        el.results.innerHTML = "";
+        rows.forEach((row) => {
+          const div = document.createElement("article");
+          div.className = "name-row";
+          const canCycle = row.splitCandidates.length > 1;
+          div.innerHTML = `
+          <div class="name-main">
+            <p class="name-text">${escapeHtml(formatNameText(row))}</p>
+            ${canCycle ? `<button class="split-cycle-btn" title="Cycle split">↻</button>` : ""}
+          </div>
+          <div class="muted syllables">${formatSyllables(row)}</div>
+          <div class="muted">${escapeHtml(row.flavor)}</div>
+
+          <footer class="chipline">
+            ${row.regions.map((r) => `<span class="chip chip--region" data-key="${escapeHtml(r)}">${escapeHtml(pretty(r))}</span>`).join("")}
+            ${row.textures.map((t) => `<span class="chip chip--texture" data-key="${escapeHtml(t)}">${escapeHtml(pretty(t))}</span>`).join("")}
+          </footer>
+        `;
+          if (canCycle) {
+            div.querySelector(".split-cycle-btn").addEventListener("click", () => {
+              const idx = row.splitCandidates.indexOf(row.splitAt);
+              row.splitAt = row.splitCandidates[(idx + 1) % row.splitCandidates.length];
+              div.querySelector(".name-text").textContent = formatNameText(row);
+              div.querySelector(".syllables").innerHTML = formatSyllables(row);
+            });
+          }
+          el.results.appendChild(div);
+        });
+        requestAnimationFrame(() => {
+          el.results.querySelectorAll("footer.chipline").forEach((footer) => {
+            footer.classList.toggle("clipped", footer.scrollHeight > footer.clientHeight);
+          });
+        });
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function refreshTaxonomyUI() {
+        buildChecks(el.regionChecks, getAllRegions(), "region", true);
+        buildChecks(el.textureChecks, getAllTextures(), "texture", true);
+      }
+
+      function loadEditorFromState() {
+        el.dataEditor.value = JSON.stringify(state.syllables, null, 2);
+      }
+
+      function reloadDataFromEditor() {
+        try {
+          const parsed = JSON.parse(el.dataEditor.value);
+          if (!Array.isArray(parsed))
+            throw new Error("Top-level data must be an array.");
+
+          parsed.forEach((s, index) => {
+            if (typeof s.text !== "string" || !s.text.trim())
+              throw new Error(`Entry ${index} is missing a valid text field.`);
+            if (!Array.isArray(s.positions) || !s.positions.length)
+              throw new Error(`Entry ${index} must have positions.`);
+            if (!Array.isArray(s.regions))
+              throw new Error(`Entry ${index} must have regions.`);
+            if (!Array.isArray(s.textures))
+              throw new Error(`Entry ${index} must have textures.`);
+            if (!Array.isArray(s.env) || s.env.length !== 3)
+              throw new Error(
+                `Entry ${index} must have env: [altitude, moisture, temperature].`,
+              );
+            if (s.env.some((v) => typeof v !== "number" || v < 0 || v > 10))
+              throw new Error(`Entry ${index} has env values outside 0-10.`);
+          });
+
+          state.syllables = parsed;
+          refreshTaxonomyUI();
+          el.reloadStatus.textContent = "Reloaded successfully.";
+          generateMany();
+        } catch (error) {
+          el.reloadStatus.textContent = `Reload failed: ${error.message}`;
+        }
+      }
+
+      function bindEvents() {
+        [el.altitude, el.moisture, el.temperature].forEach((input) => {
+          input.addEventListener("input", () => {
+            renderSliderReadouts();
+          });
+        });
+
+        el.generateBtn.addEventListener("click", generateMany);
+        el.rerollBtn.addEventListener("click", () => generateMany(true));
+        el.reloadDataBtn.addEventListener("click", reloadDataFromEditor);
+
+        [el.count, el.lengthMode, el.blendMode].forEach((input) => {
+          input.addEventListener("change", generateMany);
+        });
+
+        el.splitLongNames.addEventListener("change", () => renderResults(state.lastRows));
+
+        el.regionChecks.addEventListener("change", generateMany);
+        el.textureChecks.addEventListener("change", generateMany);
+
+        el.results.addEventListener("mouseover", (e) => {
+          const syllable = e.target.closest("abbr.syllable");
+          if (!syllable) return;
+          const article = syllable.closest("article");
+          const keys = syllable.dataset.keys
+            ? syllable.dataset.keys.split(",")
+            : [];
+          article.querySelectorAll(".chip[data-key]").forEach((chip) => {
+            chip.classList.toggle("chip--lit", keys.includes(chip.dataset.key));
+          });
+        });
+
+        el.results.addEventListener("mouseout", (e) => {
+          const syllable = e.target.closest("abbr.syllable");
+          if (!syllable) return;
+          const article = syllable.closest("article");
+          article
+            .querySelectorAll(".chip--lit")
+            .forEach((chip) => chip.classList.remove("chip--lit"));
+        });
+      }
+
+      function init() {
+        refreshTaxonomyUI();
+        renderSliderReadouts();
+        loadEditorFromState();
+        bindEvents();
+        generateMany();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
